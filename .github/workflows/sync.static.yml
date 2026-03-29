@@ -1,71 +1,73 @@
-name: Sync static CDN mirror
+name: Sync Quran static data
 
 on:
   workflow_dispatch:
     inputs:
       include_tafsir:
-        description: "Download tafsir JSON (3 editions × 114 chapters)"
+        description: "Download tafsir JSON (tafsirs/ on repo root)"
         type: boolean
         default: true
       static_subpath:
-        description: "Path under output for JSON (script default: data/v4)"
+        description: "Under repo root; empty = flat layout (script default)"
         type: string
-        default: "data/v4"
-      output_dir:
-        description: "Directory under repo root to write files"
-        type: string
-        default: "cdn-mirror"
+        default: ""
 
   schedule:
-    # Weekly, Sunday 06:00 UTC — change as needed
-    - cron: "0 6 * * 0"
+    - cron: "0 6 * * 0" # weekly Sun 06:00 UTC — edit as needed
 
 permissions:
   contents: write
 
 concurrency:
-  group: sync-cdn-mirror
+  group: sync-quran-static-data
   cancel-in-progress: true
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      # workflow_dispatch: use inputs; schedule: fallbacks match script defaults
+      STATIC_SUBPATH: ${{ github.event.inputs.static_subpath || '' }}
+      INCLUDE_TAFSIR: ${{ github.event.inputs.include_tafsir || 'true' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download mirror
-        env:
-          OUT_REL: ${{ inputs.output_dir }}
+      - name: Download (repo root, flat JSON layout)
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          ROOT="${GITHUB_WORKSPACE}"
-          OUT="${ROOT}/${OUT_REL}"
-          mkdir -p "${OUT}"
-
           ARGS=(
-            python3 "${ROOT}/scripts/download_data.py"
-            -o "${OUT}"
-            --static-subpath "${{ inputs.static_subpath }}"
+            python3 scripts/download_data.py
+            -o .
             --workers 32
           )
-          if [ "${{ inputs.include_tafsir }}" = "true" ]; then
+          if [ -n "${STATIC_SUBPATH}" ]; then
+            ARGS+=( --static-subpath "${STATIC_SUBPATH}" )
+          fi
+          if [ "${INCLUDE_TAFSIR}" = "true" ]; then
             ARGS+=( --tafsir )
           fi
-
           "${ARGS[@]}"
 
       - name: Commit and push if changed
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add "${{ inputs.output_dir }}"
+          # Directories/files the mirror creates at repo root (flat layout)
+          for p in \
+            full-quran meta tajweed others morphology-data lexicon \
+            words-data verse-translations timestamps; do
+            if [ -e "$p" ]; then git add "$p"; fi
+          done
+          if [ -d tafsirs ]; then git add tafsirs; fi
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
             exit 0
           fi
 
-          git commit -m "chore(data): refresh CDN mirror (${{ inputs.output_dir }})"
+          git commit -m "chore(data): refresh Quran static mirror"
           git push

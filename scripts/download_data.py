@@ -6,13 +6,14 @@ Default origins (same as typical app defaults):
   https://static.quranwbw.com/data/v4  — JSON, fonts metadata paths in app
   https://audios.quranwbw.com/words    — per-word MP3 (--word-audio)
 
-Mirror layout under --output (no vendor name in defaults):
-  {--static-subpath}/...  — static JSON tree (default data/v4, same as upstream CDN paths)
-  {--static-subpath}/tafsirs/... — with --tafsir
-  {--audio-subpath}/...   — per-word MP3s with --word-audio (default audio/words)
+Mirror layout (defaults: write to current directory root, no data/v4 folder):
+  --output . (default)     — root directory for all files
+  --static-subpath "" (default) — JSON directly under --output (meta/, words-data/, …)
+  tafsirs/                   — with --tafsir (under --output when static-subpath is empty)
+  {--audio-subpath}/...      — per-word MP3s (default audio/words)
 
-Override --static-subpath e.g. api/v1/data/v4 if your host serves files under that prefix;
-set PUBLIC_STATIC_DATA_BASE to match (e.g. https://example.com/api/v1/data/v4).
+If you need the old CDN-shaped tree, use e.g. --static-subpath data/v4 and set
+PUBLIC_STATIC_DATA_BASE to that URL path on your host.
 
 Tafsir chapters mirrored on the static CDN only (--tafsir), not third-party CDNs.
 
@@ -22,9 +23,9 @@ Sync point: resource IDs / versions should match apps/web-assirat/src/data/optio
 and staticMirrorEditions (tafsir slugs).
 
 Usage:
-  python3 scripts/download_data.py -o ./cdn-mirror
-  python3 scripts/download_data.py -o ./cdn-mirror --tafsir
-  python3 scripts/download_data.py -o ./public --static-subpath api/v1/data/v4
+  python3 scripts/download_quranwbw_data.py
+  python3 scripts/download_quranwbw_data.py --tafsir
+  python3 scripts/download_quranwbw_data.py -o ./public --static-subpath data/v4
 """
 
 from __future__ import annotations
@@ -50,11 +51,17 @@ DEFAULT_WORDS_AUDIO_BASE = "https://audios.quranwbw.com/words"
 USER_AGENT = "Safari/1.0"
 
 
-def parse_rel_subpath(label: str, raw: str) -> Path:
-    """Relative path only; used under --output."""
-    p = Path(raw.strip())
-    if not raw.strip() or p == Path("."):
-        raise SystemExit(f"{label} must be a non-empty relative path")
+def parse_rel_subpath(label: str, raw: str, *, allow_dot: bool = False) -> Path:
+    """
+    Relative path under --output.
+    If allow_dot, empty string or '.' means the output directory itself.
+    """
+    s = raw.strip()
+    if not s or s == ".":
+        if allow_dot:
+            return Path(".")
+        raise SystemExit(f"{label} must be a non-empty relative path (or pass allow_dot)")
+    p = Path(s)
     if p.is_absolute():
         raise SystemExit(f"{label} must be relative, got {raw!r}")
     return p
@@ -337,14 +344,14 @@ def main() -> int:
         "-o",
         "--output",
         type=Path,
-        default=Path("./cdn-mirror"),
-        help="Output directory root (neutral default: ./cdn-mirror)",
+        default=Path("."),
+        help="Output directory root (default: current directory / repo root)",
     )
     p.add_argument(
         "--static-subpath",
-        default="data/v4",
+        default="",
         metavar="REL",
-        help="Path under --output for JSON (default data/v4). Example: api/v1/data/v4",
+        help="Path under --output for JSON (default: empty = same as --output root). Example: data/v4",
     )
     p.add_argument(
         "--audio-subpath",
@@ -392,7 +399,7 @@ def main() -> int:
     args = p.parse_args()
     out: Path = args.output.resolve()
 
-    static_subpath = parse_rel_subpath("--static-subpath", args.static_subpath)
+    static_subpath = parse_rel_subpath("--static-subpath", args.static_subpath, allow_dot=True)
     audio_subpath = parse_rel_subpath("--audio-subpath", args.audio_subpath)
 
     assert_quranwbw_http_url(args.static_base, "--static-base")
@@ -422,7 +429,8 @@ def main() -> int:
 
     print(f"Jobs: {len(resolved)}")
     print(f"Output: {out}")
-    print(f"Static subpath: {static_subpath.as_posix()}", flush=True)
+    sp = static_subpath.as_posix()
+    print(f"Static subpath: {sp if sp != '.' else '(output root)'}", flush=True)
     if args.word_audio:
         print(f"Audio subpath: {audio_subpath.as_posix()}", flush=True)
     if args.dry_run:
