@@ -1,31 +1,13 @@
 #!/usr/bin/env python3
 """
-Download assets.
+Download assets
 
-Default origins (same as typical app defaults):
-  https://static.quranwbw.com/data/v4  — JSON, fonts metadata paths in app
-  https://audios.quranwbw.com/words    — per-word MP3 (--word-audio)
+Font URLs match apps/web-assirat: JSON under {static_base}/..., fonts under {static_base}/fonts/...
 
-Mirror layout (defaults: write to current directory root, no data/v4 folder):
-  --output . (default)     — root directory for all files
-  --static-subpath "" (default) — JSON directly under --output (meta/, words-data/, …)
-  tafsirs/                   — with --tafsir (under --output when static-subpath is empty)
-  {--audio-subpath}/...      — per-word MP3s (default audio/words)
-
-If you need the old CDN-shaped tree, use e.g. --static-subpath data/v4 and set
-PUBLIC_STATIC_DATA_BASE to that URL path on your host.
-
-Tafsir chapters mirrored on the static CDN only (--tafsir), not third-party CDNs.
-
-Does not fetch: jsDelivr/spa5k, everyayah.com, GitHub Pages, or other non-quranwbw hosts.
-
-Sync point: resource IDs / versions should match apps/web-assirat/src/data/options.ts
-and staticMirrorEditions (tafsir slugs).
-
-Usage:
-  python3 scripts/download_quranwbw_data.py
-  python3 scripts/download_quranwbw_data.py --tafsir
-  python3 scripts/download_quranwbw_data.py -o ./public --static-subpath data/v4
+Examples:
+  python3 scripts/download_data.py
+  python3 scripts/download_data.py --fonts
+  python3 scripts/download_data.py -o ./mirror --static-subpath data/v4 --fonts-subpath data/v4/fonts --fonts
 """
 
 from __future__ import annotations
@@ -42,21 +24,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterable
 
-# ---------------------------------------------------------------------------
-# Defaults — QuranWBW domains only (see apps/web-assirat/src/config/site.ts)
-# ---------------------------------------------------------------------------
 DEFAULT_STATIC_BASE = "https://static.quranwbw.com/data/v4"
-DEFAULT_FONTS_BASE = "https://static.quranwbw.com/fonts"
 DEFAULT_WORDS_AUDIO_BASE = "https://audios.quranwbw.com/words"
-
 USER_AGENT = "Safari/1.0"
 
 
 def parse_rel_subpath(label: str, raw: str, *, allow_dot: bool = False) -> Path:
-    """
-    Relative path under --output.
-    If allow_dot, empty string or '.' means the output directory itself.
-    """
     s = raw.strip()
     if not s or s == ".":
         if allow_dot:
@@ -69,10 +42,6 @@ def parse_rel_subpath(label: str, raw: str, *, allow_dot: bool = False) -> Path:
 
 
 def default_io_workers() -> int:
-    """
-    Thread count for parallel HTTP downloads (I/O-bound).
-    Scales with CPU count but capped so we do not open excessive connections by default.
-    """
     n = os.cpu_count() or 4
     return min(64, max(16, n * 8))
 
@@ -89,7 +58,11 @@ def assert_quranwbw_http_url(url: str, label: str) -> None:
     if not _host_is_quranwbw(parsed.netloc):
         raise SystemExit(f"{label} must be a quranwbw.com host (got {parsed.netloc!r}): {url!r}")
 
-# Unique Arabic bundle files: (font_id_on_cdn, version) — from selectableFontTypes inner `id` + `version`
+
+def fonts_base_from_static_base(static_base: str) -> str:
+    return f"{static_base.rstrip('/')}/fonts"
+
+
 ARABIC_WBW: list[tuple[int, int]] = [
     (1, 5),
     (2, 5),
@@ -99,7 +72,6 @@ ARABIC_WBW: list[tuple[int, int]] = [
     (9, 2),
 ]
 
-# Word translations: (id, version) — selectableWordTranslationsData
 WORD_TRANSLATIONS: list[tuple[int, int]] = [
     (1, 4),
     (2, 1),
@@ -123,7 +95,6 @@ WORD_TRANSLATIONS: list[tuple[int, int]] = [
     (22, 1),
 ]
 
-# Word transliterations: (id, version)
 WORD_TRANSLITERATIONS: list[tuple[int, int]] = [
     (1, 1),
     (2, 1),
@@ -131,7 +102,6 @@ WORD_TRANSLITERATIONS: list[tuple[int, int]] = [
     (4, 1),
 ]
 
-# Verse translations: (resource_id, version) — selectableVerseTranslationsData
 VERSE_TRANSLATIONS: list[tuple[int, int]] = [
     (88, 1),
     (161, 1),
@@ -190,31 +160,34 @@ VERSE_TRANSLATIONS: list[tuple[int, int]] = [
     (831, 1),
 ]
 
-# Tafsir JSON on static.quranwbw.com — staticMirrorEditions.ts (quranwbwStatic source)
 TAFSIR_QURANWBW_SLUGS: list[str] = [
     "sq-ibn-kathir",
     "sq-al-saddi",
     "ur-tafheem-ul-quran",
 ]
 
-# (path_under_fonts_base, version)
+# websiteSettings.ts / Bismillah.svelte (unique files, v13) + chapter header (v12)
 FONTS_EXTRAS: list[tuple[str, int]] = [
     ("Extras/bismillah/qcf-bismillah-normal.woff2", 13),
+    ("Extras/bismillah/QCF_Bismillah_COLOR-Regular.woff2", 13),
+    ("Extras/bismillah/IndopakBismillah-Arabic.woff2", 13),
+    ("Extras/bismillah/Qcf-nastaleeq-bismillah-normal.woff2", 13),
+    ("Extras/bismillah/qcf-bismillah-bold.woff2", 13),
+    ("Extras/bismillah/Qcf-nastaleeq-bismillah-bold.woff2", 13),
+    ("Extras/bismillah/MisbahBismillah-Arabic.woff2", 13),
+    ("Extras/bismillah/QCF_Bismillah_COLOR-Dark-FF-Regular.woff2", 13),
+    ("Extras/chapter-headers/NeoHeader_COLOR-Regular.woff2", 12),
 ]
 
-# Hafs V4 page fonts (QCF4001 to QCF4604)
-# (subpath_pattern, version_normal, version_color)
 FONTS_HAFS_V4: list[tuple[str, int, int]] = [
     ("Hafs/KFGQPC-v4", 12, 12),
 ]
 
 
 def tafsir_base_from_static_base(static_base: str) -> str:
-    """https://static.quranwbw.com/data/v4 -> .../data/v4/tafsirs"""
     return f"{static_base.rstrip('/')}/tafsirs"
 
 
-# Fixed paths under static base (websiteSettings.ts, endpoints.ts, morphologyDataUrls)
 FIXED_STATIC_PATHS: list[tuple[str, int]] = [
     ("full-quran/uthmani.json", 1),
     ("meta/verseKeyData.json", 2),
@@ -231,14 +204,12 @@ FIXED_STATIC_PATHS: list[tuple[str, int]] = [
 
 
 def collect_static_jobs(static_base: str, static_subpath: Path) -> list[tuple[str, Path]]:
-    """Return (url, relative_path_under_output) for all static JSON."""
     base = static_base.rstrip("/")
     root = static_subpath
     jobs: list[tuple[str, Path]] = []
 
     for path, ver in FIXED_STATIC_PATHS:
-        url = f"{base}/{path}?version={ver}"
-        jobs.append((url, root / path))
+        jobs.append((f"{base}/{path}?version={ver}", root / path))
 
     for fid, ver in ARABIC_WBW:
         name = f"words-data/arabic/{fid}.json"
@@ -264,25 +235,18 @@ def collect_static_jobs(static_base: str, static_subpath: Path) -> list[tuple[st
 
 
 def collect_font_jobs(fonts_base: str, fonts_subpath: Path) -> list[tuple[str, Path]]:
-    """Return (url, relative_path_under_output) for Bismillah and all 604 page fonts."""
     base = fonts_base.rstrip("/")
     root = fonts_subpath
     jobs: list[tuple[str, Path]] = []
 
-    # Extra fonts (Bismillah)
     for path, ver in FONTS_EXTRAS:
-        url = f"{base}/{path}?version={ver}"
-        jobs.append((url, root / path))
+        jobs.append((f"{base}/{path}?version={ver}", root / path))
 
-    # Hafs V4 page fonts (normal and COLOR)
     for subpath, ver_norm, ver_color in FONTS_HAFS_V4:
         for page in range(1, 605):
             page_str = str(page).zfill(3)
-            # Normal: Hafs/KFGQPC-v4/QCF4001-Regular.woff2
             p_norm = f"{subpath}/QCF4{page_str}-Regular.woff2"
             jobs.append((f"{base}/{p_norm}?version={ver_norm}", root / p_norm))
-
-            # COLOR: Hafs/KFGQPC-v4/COLRv1/QCF4001_COLOR-Regular.woff2
             p_color = f"{subpath}/COLRv1/QCF4{page_str}_COLOR-Regular.woff2"
             jobs.append((f"{base}/{p_color}?version={ver_color}", root / p_color))
 
@@ -290,7 +254,6 @@ def collect_font_jobs(fonts_base: str, fonts_subpath: Path) -> list[tuple[str, P
 
 
 def collect_tafsir_jobs(tafsir_base: str, tafsirs_subpath: Path) -> list[tuple[str, Path]]:
-    """Chapters 1–114 for each edition on static CDN .../tafsirs."""
     jobs: list[tuple[str, Path]] = []
     tb = tafsir_base.rstrip("/")
     for slug in TAFSIR_QURANWBW_SLUGS:
@@ -312,8 +275,7 @@ def download_one(
     for attempt in range(retries + 1):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = resp.read()
-            dest.write_bytes(data)
+                dest.write_bytes(resp.read())
             return (url, True, "")
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as e:
             last_err = str(e)
@@ -323,9 +285,7 @@ def download_one(
 
 
 def load_word_index_for_audio(static_base: str, timeout: float) -> dict | None:
-    """Fetch verseKeyData.json to discover word counts per verse for --word-audio."""
-    base = static_base.rstrip("/")
-    url = f"{base}/meta/verseKeyData.json?version=2"
+    url = f"{static_base.rstrip('/')}/meta/verseKeyData.json?version=2"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -340,12 +300,8 @@ def collect_word_audio_jobs(
     surahs: Iterable[int] | None,
     audio_subpath: Path,
 ) -> list[tuple[str, Path]]:
-    """
-    Build per-word MP3 URLs. verse_key_data matches the app: {"1:1": {"words": n, ...}, ...}.
-    """
     jobs: list[tuple[str, Path]] = []
     base = words_audio_base.rstrip("/")
-
     data = verse_key_data.get("data", verse_key_data)
     if not isinstance(data, dict):
         return []
@@ -364,107 +320,71 @@ def collect_word_audio_jobs(
         w = meta.get("words")
         if not isinstance(w, int) or w < 1:
             continue
-        cpad = str(ch).zfill(3)
-        vpad = str(v).zfill(3)
+        cpad, vpad = str(ch).zfill(3), str(v).zfill(3)
         for wi in range(1, w + 1):
             wpad = str(wi).zfill(3)
             rel_audio = f"{ch}/{cpad}_{vpad}_{wpad}.mp3"
-            url = f"{base}/{rel_audio}?version=2"
-            jobs.append((url, audio_subpath / rel_audio))
+            jobs.append((f"{base}/{rel_audio}?version=2", audio_subpath / rel_audio))
     return jobs
 
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Download QuranWBW-hosted data only (static.quranwbw.com, audios.quranwbw.com)."
+        description="Download QuranWBW-hosted data (static.quranwbw.com, audios.quranwbw.com)."
     )
-    p.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=Path("."),
-        help="Output directory root (default: current directory / repo root)",
-    )
+    p.add_argument("-o", "--output", type=Path, default=Path("."))
     p.add_argument(
         "--static-subpath",
         default="",
         metavar="REL",
-        help="Path under --output for JSON (default: empty = same as --output root). Example: data/v4",
+        help="Path under -o for JSON (default: output root). Example: data/v4",
     )
     p.add_argument(
-        "--audio-subpath",
-        default="audio/words",
+        "--fonts-subpath",
+        default="fonts",
         metavar="REL",
-        help="Path under --output for --word-audio (default audio/words)",
+        help="Path under -o for --fonts (default: fonts). Example: data/v4/fonts",
     )
-    p.add_argument(
-        "--static-base",
-        default=DEFAULT_STATIC_BASE,
-        help="Static JSON base (must be *.quranwbw.com), default static.quranwbw.com/data/v4",
-    )
+    p.add_argument("--audio-subpath", default="audio/words", metavar="REL")
+    p.add_argument("--static-base", default=DEFAULT_STATIC_BASE)
     p.add_argument(
         "--fonts-base",
-        default=DEFAULT_FONTS_BASE,
-        help="Fonts base URL (must be *.quranwbw.com), default static.quranwbw.com/fonts",
+        default="",
+        help="Override fonts URL root (default: {--static-base}/fonts)",
     )
-    p.add_argument(
-        "--workers",
-        type=int,
-        default=None,
-        metavar="N",
-        help=f"Parallel download threads (default: auto ≈ {default_io_workers()} on this machine; I/O-bound, try 32–64)",
-    )
+    p.add_argument("--workers", type=int, default=None, metavar="N")
     p.add_argument("--timeout", type=float, default=120.0)
     p.add_argument("--retries", type=int, default=2)
-    p.add_argument("--dry-run", action="store_true", help="Only print job counts")
-    p.add_argument(
-        "--tafsir",
-        action="store_true",
-        help="Include tafsir JSON from static CDN (data/v4/tafsirs), 114 chapters × editions",
-    )
-    p.add_argument(
-        "--fonts",
-        action="store_true",
-        help="Include fonts from static CDN (fonts/), Bismillah + all 604 page fonts",
-    )
-    p.add_argument(
-        "--tafsir-base",
-        default="",
-        help="Override tafsir root URL (default: {static-base}/tafsirs); must be *.quranwbw.com",
-    )
-    p.add_argument("--word-audio", action="store_true", help="Download all per-word MP3s from audios.quranwbw.com (huge)")
-    p.add_argument(
-        "--words-audio-base",
-        default=DEFAULT_WORDS_AUDIO_BASE,
-        help="Per-word audio base (must be *.quranwbw.com)",
-    )
-    p.add_argument(
-        "--word-audio-surahs",
-        type=str,
-        default="",
-        help="Comma surah numbers for --word-audio only, e.g. 1,2,114 (default: all)",
-    )
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--tafsir", action="store_true")
+    p.add_argument("--fonts", action="store_true")
+    p.add_argument("--tafsir-base", default="")
+    p.add_argument("--word-audio", action="store_true")
+    p.add_argument("--words-audio-base", default=DEFAULT_WORDS_AUDIO_BASE)
+    p.add_argument("--word-audio-surahs", type=str, default="")
     args = p.parse_args()
-    out: Path = args.output.resolve()
 
+    out: Path = args.output.resolve()
     static_subpath = parse_rel_subpath("--static-subpath", args.static_subpath, allow_dot=True)
+    fonts_subpath = parse_rel_subpath("--fonts-subpath", args.fonts_subpath, allow_dot=True)
     audio_subpath = parse_rel_subpath("--audio-subpath", args.audio_subpath)
 
     assert_quranwbw_http_url(args.static_base, "--static-base")
     assert_quranwbw_http_url(args.words_audio_base, "--words-audio-base")
 
+    fonts_base = (args.fonts_base or "").strip() or fonts_base_from_static_base(args.static_base)
+    if args.fonts:
+        assert_quranwbw_http_url(fonts_base, "--fonts-base")
+
     tafsir_base = args.tafsir_base.strip() or tafsir_base_from_static_base(args.static_base)
     if args.tafsir:
         assert_quranwbw_http_url(tafsir_base, "--tafsir-base")
 
-    assert_quranwbw_http_url(args.fonts_base, "--fonts-base")
-
-    jobs = collect_static_jobs(args.static_base, static_subpath)
+    jobs: list[tuple[str, Path]] = collect_static_jobs(args.static_base, static_subpath)
     if args.tafsir:
         jobs.extend(collect_tafsir_jobs(tafsir_base, static_subpath / "tafsirs"))
-
     if args.fonts:
-        jobs.extend(collect_font_jobs(args.fonts_base, Path("fonts")))
+        jobs.extend(collect_font_jobs(fonts_base, fonts_subpath))
 
     if args.word_audio:
         surahs_set: set[int] | None = None
@@ -482,33 +402,24 @@ def main() -> int:
 
     print(f"Jobs: {len(resolved)}")
     print(f"Output: {out}")
-    sp = static_subpath.as_posix()
-    print(f"Static subpath: {sp if sp != '.' else '(output root)'}", flush=True)
-    if args.word_audio:
-        print(f"Audio subpath: {audio_subpath.as_posix()}", flush=True)
+    print(f"Static subpath: {static_subpath.as_posix()!r}")
+    if args.fonts:
+        print(f"Fonts base URL: {fonts_base}")
+        print(f"Fonts subpath: {fonts_subpath.as_posix()!r}")
     if args.dry_run:
         return 0
 
-    workers = args.workers if args.workers is not None else default_io_workers()
-    workers = max(1, workers)
+    workers = max(1, args.workers if args.workers is not None else default_io_workers())
+    chunk_size = max(workers * 100, 2000)
+    print(f"Downloading with {workers} threads (chunks up to {chunk_size})", flush=True)
 
-    ok = 0
-    fail = 0
+    ok = fail = 0
     errors: list[str] = []
 
-    # Chunk size: large enough to keep the thread pool busy; bounded so we do not
-    # materialize millions of Future objects at once (--word-audio).
-    chunk_size = max(workers * 100, 2000)
-
-    print(f"Downloading with {workers} threads (chunks of up to {chunk_size} jobs)", flush=True)
-
-    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="qwbw-dl") as executor:
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="qwbw-dl") as ex:
         for offset in range(0, len(resolved), chunk_size):
             batch = resolved[offset : offset + chunk_size]
-            futures = [
-                executor.submit(download_one, url, dest, args.timeout, args.retries)
-                for url, dest in batch
-            ]
+            futures = [ex.submit(download_one, url, dest, args.timeout, args.retries) for url, dest in batch]
             for fut in as_completed(futures):
                 url, success, err = fut.result()
                 if success:
