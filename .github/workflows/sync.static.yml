@@ -11,6 +11,10 @@ on:
         description: "Under repo root; empty = flat layout (script default)"
         type: string
         default: ""
+      include_fonts:
+        description: "Download fonts (fonts/ on repo root)"
+        type: boolean
+        default: true
 
   schedule:
     - cron: "0 6 * * 0" # weekly Sun 06:00 UTC — edit as needed
@@ -29,6 +33,7 @@ jobs:
       # workflow_dispatch: use inputs; schedule: fallbacks match script defaults
       STATIC_SUBPATH: ${{ github.event.inputs.static_subpath || '' }}
       INCLUDE_TAFSIR: ${{ github.event.inputs.include_tafsir || 'true' }}
+      INCLUDE_FONTS: ${{ github.event.inputs.include_fonts || 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +52,9 @@ jobs:
           if [ "${INCLUDE_TAFSIR}" = "true" ]; then
             ARGS+=( --tafsir )
           fi
+          if [ "${INCLUDE_FONTS}" = "true" ]; then
+            ARGS+=( --fonts )
+          fi
           "${ARGS[@]}"
 
       - name: Commit and push if changed
@@ -63,6 +71,7 @@ jobs:
             if [ -e "$p" ]; then git add "$p"; fi
           done
           if [ -d tafsirs ]; then git add tafsirs; fi
+          if [ -d fonts ]; then git add fonts; fi
 
           if git diff --staged --quiet; then
             echo "No changes to commit."

@@ -46,6 +46,7 @@ from typing import Iterable
 # Defaults — QuranWBW domains only (see apps/web-assirat/src/config/site.ts)
 # ---------------------------------------------------------------------------
 DEFAULT_STATIC_BASE = "https://static.quranwbw.com/data/v4"
+DEFAULT_FONTS_BASE = "https://static.quranwbw.com/fonts"
 DEFAULT_WORDS_AUDIO_BASE = "https://audios.quranwbw.com/words"
 
 USER_AGENT = "Safari/1.0"
@@ -196,6 +197,17 @@ TAFSIR_QURANWBW_SLUGS: list[str] = [
     "ur-tafheem-ul-quran",
 ]
 
+# (path_under_fonts_base, version)
+FONTS_EXTRAS: list[tuple[str, int]] = [
+    ("Extras/bismillah/qcf-bismillah-normal.woff2", 13),
+]
+
+# Hafs V4 page fonts (QCF4001 to QCF4604)
+# (subpath_pattern, version_normal, version_color)
+FONTS_HAFS_V4: list[tuple[str, int, int]] = [
+    ("Hafs/KFGQPC-v4", 12, 12),
+]
+
 
 def tafsir_base_from_static_base(static_base: str) -> str:
     """https://static.quranwbw.com/data/v4 -> .../data/v4/tafsirs"""
@@ -247,6 +259,32 @@ def collect_static_jobs(static_base: str, static_subpath: Path) -> list[tuple[st
     for ch in range(1, 115):
         path = f"lexicon/word-summaries/{ch}.json"
         jobs.append((f"{base}/{path}?version=2", root / path))
+
+    return jobs
+
+
+def collect_font_jobs(fonts_base: str, fonts_subpath: Path) -> list[tuple[str, Path]]:
+    """Return (url, relative_path_under_output) for Bismillah and all 604 page fonts."""
+    base = fonts_base.rstrip("/")
+    root = fonts_subpath
+    jobs: list[tuple[str, Path]] = []
+
+    # Extra fonts (Bismillah)
+    for path, ver in FONTS_EXTRAS:
+        url = f"{base}/{path}?version={ver}"
+        jobs.append((url, root / path))
+
+    # Hafs V4 page fonts (normal and COLOR)
+    for subpath, ver_norm, ver_color in FONTS_HAFS_V4:
+        for page in range(1, 605):
+            page_str = str(page).zfill(3)
+            # Normal: Hafs/KFGQPC-v4/QCF4001-Regular.woff2
+            p_norm = f"{subpath}/QCF4{page_str}-Regular.woff2"
+            jobs.append((f"{base}/{p_norm}?version={ver_norm}", root / p_norm))
+
+            # COLOR: Hafs/KFGQPC-v4/COLRv1/QCF4001_COLOR-Regular.woff2
+            p_color = f"{subpath}/COLRv1/QCF4{page_str}_COLOR-Regular.woff2"
+            jobs.append((f"{base}/{p_color}?version={ver_color}", root / p_color))
 
     return jobs
 
@@ -365,6 +403,11 @@ def main() -> int:
         help="Static JSON base (must be *.quranwbw.com), default static.quranwbw.com/data/v4",
     )
     p.add_argument(
+        "--fonts-base",
+        default=DEFAULT_FONTS_BASE,
+        help="Fonts base URL (must be *.quranwbw.com), default static.quranwbw.com/fonts",
+    )
+    p.add_argument(
         "--workers",
         type=int,
         default=None,
@@ -378,6 +421,11 @@ def main() -> int:
         "--tafsir",
         action="store_true",
         help="Include tafsir JSON from static CDN (data/v4/tafsirs), 114 chapters × editions",
+    )
+    p.add_argument(
+        "--fonts",
+        action="store_true",
+        help="Include fonts from static CDN (fonts/), Bismillah + all 604 page fonts",
     )
     p.add_argument(
         "--tafsir-base",
@@ -409,9 +457,14 @@ def main() -> int:
     if args.tafsir:
         assert_quranwbw_http_url(tafsir_base, "--tafsir-base")
 
+    assert_quranwbw_http_url(args.fonts_base, "--fonts-base")
+
     jobs = collect_static_jobs(args.static_base, static_subpath)
     if args.tafsir:
         jobs.extend(collect_tafsir_jobs(tafsir_base, static_subpath / "tafsirs"))
+
+    if args.fonts:
+        jobs.extend(collect_font_jobs(args.fonts_base, Path("fonts")))
 
     if args.word_audio:
         surahs_set: set[int] | None = None
