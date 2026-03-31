@@ -17,7 +17,7 @@ All endpoints are prefixed with `/v1/`. The root `GET /` returns a machine-reada
 
 | Source | License | Data |
 |---|---|---|
-| [QUL — Tarteel AI](https://qul.tarteel.ai) | MIT | Arabic text (28 scripts), 209 translations, 114 tafsirs, 152 recitations, 77k morphology records, Mutashabihat, topics, Mushaf layouts |
+| [QUL — Tarteel AI](https://qul.tarteel.ai) | MIT | Arabic text (28 scripts), 209 translations, 150+ tafsirs (30+ languages), 152 recitations, 77k morphology records, Mutashabihat, topics, Mushaf layouts |
 | [corpus.quran.com](https://corpus.quran.com) via [mustafa0x](https://github.com/mustafa0x/quran-morphology) | GPL | Sub-word morphological segmentation: POS tags, case, mood, voice, lemma, root per segment |
 | [Tanzil](https://tanzil.net) | Non-commercial | Structural metadata: juz, hizb, ruku, manzil, page boundaries |
 
@@ -695,25 +695,47 @@ Use the `id` field in `?translations=131,85` query parameters.
 
 #### `GET /v1/tafsirs`
 
-Returns the full catalog of 114 available tafsirs.
+Returns the full catalog of available tafsirs across all languages.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `language` | string | Case-insensitive substring filter, e.g. `turkish`, `indonesian`, `russian` |
+| `type` | string | Filter by type: `mukhtasar` or `detailed` |
+
+**Example**
+```
+GET /v1/tafsirs?language=turkish
+GET /v1/tafsirs?type=mukhtasar
+```
 
 **Response**
 ```json
 {
   "data": [
     {
-      "id": 169,
+      "id": 306,
       "name": "Tafsir Ibn Kathir",
-      "language": "english",
+      "language": "turkish",
       "author": "Ibn Kathir",
       "type": "detailed"
+    },
+    {
+      "id": 258,
+      "name": "Al-Mukhtasar",
+      "language": "turkish",
+      "author": null,
+      "type": "mukhtasar"
     }
   ],
-  "meta": { "total": 114 }
+  "meta": { "total": 2 }
 }
 ```
 
 **`type` values**: `mukhtasar` (condensed), `detailed`.
+
+**Available languages** include: arabic, english, urdu, bengali, russian, turkish, indonesian, persian, french, spanish, bosnian, italian, chinese, japanese, hindi, tagalog, uzbek, kyrgyz, azerbaijani, uyghur, pashto, malayalam, telugu, tamil, assamese, sinhalese, khmer, thai, vietnamese, serbian, kurdish, and more.
 
 Use the `id` in `GET /v1/verse/:key/tafsir/:id`.
 

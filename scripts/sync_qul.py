@@ -218,7 +218,59 @@ def sync_translations() -> None:
 # ---------------------------------------------------------------------------
 # Tafsirs
 # ---------------------------------------------------------------------------
-def sync_tafsirs() -> None:
+
+MULTILANG_TAFSIR_IDS: list[int] = [
+    # Turkish
+    306, 258, 484,
+    # Indonesian
+    41, 260, 503,
+    # Persian / Farsi
+    263, 485,
+    # French
+    259,
+    # Spanish
+    268,
+    # Bosnian
+    252,
+    # Italian
+    253,
+    # Chinese
+    264,
+    # Japanese
+    265,
+    # Hindi
+    535,
+    # Filipino / Tagalog
+    254,
+    # Uzbek / Kyrgyz / Azeri / Uyghur / Pashto
+    538, 536, 537, 539, 533,
+    # South / Southeast Asian
+    256, 540, 554, 255, 453, 257, 541, 261,
+    # Serbian / Kurdish (additional)
+    543, 542,
+    # Russian (ensure present)
+    170, 307, 262,
+]
+
+
+def _fetch_tafsir_surah(tid: int, surah: int) -> tuple[int, int, list | None]:
+    """Fetch one surah's tafsir data; returns (tid, surah, ayahs_or_None)."""
+    try:
+        resp = fetch_json(f"{QUL_API}/quran/tafsirs/{tid}?chapter_number={surah}")
+        ayahs = resp.get("tafsirs", resp.get("data", []))
+        return tid, surah, ayahs if ayahs else None
+    except Exception:
+        return tid, surah, None
+
+
+def sync_tafsirs(ids: list[int] | None = None, workers: int = 20) -> None:
+    """
+    Sync tafsirs from QUL.
+
+    Args:
+        ids:     Specific tafsir IDs to fetch.  None → fetch all from catalog.
+        workers: Thread-pool size for concurrent surah downloads.
+    """
     print("\n[5/9] Tafsirs …")
     try:
         catalog_raw = fetch_json(f"{QUL_API}/resources/tafsirs?page_size=500")
@@ -239,17 +291,31 @@ def sync_tafsirs() -> None:
     write_json("data/tafsirs/index.json", catalog)
     print(f"  ✓ data/tafsirs/index.json  ({len(catalog)} entries)")
 
-    for entry in catalog:
-        tid = entry["id"]
-        for surah in range(1, 115):
-            try:
-                resp = fetch_json(f"{QUL_API}/quran/tafsirs/{tid}?chapter_number={surah}")
-                ayahs = resp.get("tafsirs", resp.get("data", []))
+    id_set = set(ids) if ids is not None else None
+    target = [e for e in catalog if id_set is None or e["id"] in id_set]
+    if id_set:
+        missing = id_set - {e["id"] for e in catalog}
+        if missing:
+            print(f"  ⚠ IDs not found in catalog: {sorted(missing)}")
+    print(f"  Fetching {len(target)} tafsir(s) × 114 surahs ({len(target) * 114} requests, {workers} workers) …")
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from tqdm import tqdm
+
+    tasks = [(e["id"], s) for e in target for s in range(1, 115)]
+    written = 0
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_fetch_tafsir_surah, tid, surah): (tid, surah) for tid, surah in tasks}
+        with tqdm(total=len(futures), desc="  tafsirs", unit="req") as bar:
+            for future in as_completed(futures):
+                tid, surah, ayahs = future.result()
                 if ayahs:
                     write_json(f"data/tafsirs/{tid}/{surah}.json", {"ayahs": ayahs})
-            except Exception:
-                pass  # sparse coverage is expected
-    print(f"  ✓ tafsir files written under data/tafsirs/")
+                    written += 1
+                bar.update(1)
+
+    print(f"  ✓ {written} tafsir chapter files written under data/tafsirs/")
 
 
 # ---------------------------------------------------------------------------
@@ -492,18 +558,58 @@ def sync_mutashabihat() -> None:
 
 
 def main() -> None:
-    sync_quran_scripts()
-    sync_verse_meta()
-    sync_words_arabic()
-    sync_translations()
-    sync_tafsirs()
-    sync_word_translations()
-    sync_morphology()
-    sync_topics()
-    sync_audio()
-    sync_mushaf()
-    sync_pause_marks()
-    sync_mutashabihat()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Sync data from Quranic Universal Library (QUL)")
+    parser.add_argument(
+        "--tafsirs-only",
+        action="store_true",
+        help="Only sync tafsirs (skip all other datasets)",
+    )
+    parser.add_argument(
+        "--multilang-tafsirs",
+        action="store_true",
+        help="Sync only the curated multilingual tafsir set (non-mystical, non-esoteric)",
+    )
+    parser.add_argument(
+        "--tafsir-ids",
+        metavar="ID,...",
+        help="Comma-separated tafsir IDs to sync (implies --tafsirs-only)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Thread-pool size for concurrent tafsir downloads (default: 20)",
+    )
+    args = parser.parse_args()
+
+    # Resolve which tafsir IDs to fetch
+    tafsir_ids: list[int] | None = None
+    if args.tafsir_ids:
+        tafsir_ids = [int(x.strip()) for x in args.tafsir_ids.split(",") if x.strip()]
+    elif args.multilang_tafsirs:
+        tafsir_ids = MULTILANG_TAFSIR_IDS
+
+    tafsirs_only = args.tafsirs_only or args.multilang_tafsirs or bool(args.tafsir_ids)
+
+    if tafsirs_only:
+        sync_tafsirs(ids=tafsir_ids, workers=args.workers)
+    else:
+        sync_quran_scripts()
+        sync_verse_meta()
+        sync_words_arabic()
+        sync_translations()
+        sync_tafsirs(ids=tafsir_ids, workers=args.workers)
+        sync_word_translations()
+        sync_morphology()
+        sync_topics()
+        sync_audio()
+        sync_mushaf()
+        sync_pause_marks()
+        sync_mutashabihat()
+
     print("\n✓ QUL sync complete.")
 
 
