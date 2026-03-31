@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   loadTranslationCatalog,
   loadTafsirCatalog,
+  loadTafsirChapter,
   loadRecitations,
 } from "../data/loader.js";
 
@@ -32,6 +33,37 @@ catalog.get("/tafsirs", async (c) => {
   });
 
   return c.json({ data, meta: { total: data.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/tafsirs/:id  — info about one tafsir
+// ---------------------------------------------------------------------------
+catalog.get("/tafsirs/:id", async (c) => {
+  const id = c.req.param("id");
+  const all = await loadTafsirCatalog();
+  const entry = all.find((t) => String(t.id) === id);
+  if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
+  return c.json({ data: entry });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/tafsirs/:id/surahs  — which surahs have data for this tafsir
+// ---------------------------------------------------------------------------
+catalog.get("/tafsirs/:id/surahs", async (c) => {
+  const id = c.req.param("id");
+  const all = await loadTafsirCatalog();
+  const entry = all.find((t) => String(t.id) === id);
+  if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
+
+  const checks = await Promise.all(
+    Array.from({ length: 114 }, (_, i) => i + 1).map(async (s) => {
+      const ch = await loadTafsirChapter(id, s);
+      return ch ? s : null;
+    })
+  );
+
+  const covered = checks.filter((s): s is number => s !== null);
+  return c.json({ data: { id: entry.id, name: entry.name, language: entry.language, covered_surahs: covered }, meta: { total: covered.length } });
 });
 
 // ---------------------------------------------------------------------------

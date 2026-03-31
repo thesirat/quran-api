@@ -741,6 +741,82 @@ Use the `id` in `GET /v1/verse/:key/tafsir/:id`.
 
 ---
 
+#### `GET /v1/tafsirs/:id`
+
+Returns metadata for a single tafsir.
+
+**Path parameters**: `id` — tafsir ID.
+
+**Response**
+```json
+{
+  "data": {
+    "id": 306,
+    "name": "Tafsir Ibn Kathir",
+    "language": "turkish",
+    "author": "Ibn Kathir",
+    "type": "detailed"
+  }
+}
+```
+
+---
+
+#### `GET /v1/tafsirs/:id/surahs`
+
+Returns which surah numbers have data synced for a tafsir. Useful for tafsirs with sparse coverage (e.g. abridged editions that skip some surahs).
+
+**Path parameters**: `id` — tafsir ID.
+
+**Response**
+```json
+{
+  "data": {
+    "id": 258,
+    "name": "Al-Mukhtasar",
+    "language": "turkish",
+    "covered_surahs": [1, 2, 3, 4, 5, "...", 114]
+  },
+  "meta": { "total": 114 }
+}
+```
+
+---
+
+#### `GET /v1/surah/:n/tafsir/:id`
+
+Returns all tafsir entries for an entire surah in one request.
+
+**Path parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `n` | number | Surah number `1–114` |
+| `id` | number | Tafsir ID (see `GET /v1/tafsirs`) |
+
+**Response**
+```json
+{
+  "data": {
+    "tafsir": {
+      "id": 306,
+      "name": "Tafsir Ibn Kathir",
+      "language": "turkish",
+      "author": "Ibn Kathir",
+      "type": "detailed"
+    },
+    "surah": 1,
+    "ayahs": [
+      { "surah": 1, "ayah": 1, "text": "...", "group_from": null, "group_to": null },
+      { "surah": 1, "ayah": 2, "text": "...", "group_from": null, "group_to": null }
+    ]
+  },
+  "meta": { "total": 7 }
+}
+```
+
+---
+
 #### `GET /v1/recitations`
 
 Returns the catalog of 152 available audio recitations.

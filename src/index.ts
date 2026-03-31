@@ -42,6 +42,9 @@ app.get("/", (c) =>
       mutashabihat: "/v1/mutashabihat/:key",
       translations: "/v1/translations",
       tafsirs: "/v1/tafsirs",
+      tafsir_info: "/v1/tafsirs/:id",
+      tafsir_coverage: "/v1/tafsirs/:id/surahs",
+      surah_tafsir: "/v1/surah/:n/tafsir/:id",
       recitations: "/v1/recitations",
     },
   })

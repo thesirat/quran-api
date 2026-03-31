@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadUthmani } from "../data/loader.js";
+import { loadVerseMeta, loadUthmani, loadTafsirChapter, loadTafsirCatalog } from "../data/loader.js";
 import type { SurahMeta } from "../data/types.js";
 
 const surah = new Hono();
@@ -218,6 +218,36 @@ surah.get("/:n/verses", async (c) => {
   });
 
   return c.json({ data, meta: { total: all.length, limit, offset } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/surah/:n/tafsir/:id  — all tafsir entries for a surah
+// ---------------------------------------------------------------------------
+surah.get("/:n/tafsir/:id", async (c) => {
+  const n = Number(c.req.param("n"));
+  if (!Number.isInteger(n) || n < 1 || n > 114) {
+    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
+  }
+
+  const tafsirId = c.req.param("id");
+  const [chapter, catalog] = await Promise.all([
+    loadTafsirChapter(tafsirId, n),
+    loadTafsirCatalog(),
+  ]);
+
+  if (!chapter) {
+    return c.json({ status: 404, type: "not_found", title: "Tafsir not found", detail: `Tafsir ${tafsirId} has no data for surah ${n}` }, 404);
+  }
+
+  const meta = catalog.find((t) => String(t.id) === tafsirId);
+  return c.json({
+    data: {
+      tafsir: meta ?? { id: tafsirId },
+      surah: n,
+      ayahs: chapter.ayahs,
+    },
+    meta: { total: chapter.ayahs.length },
+  });
 });
 
 export { surah };
