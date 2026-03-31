@@ -2,8 +2,6 @@ import { Hono } from "hono";
 import {
   loadCorpusMorphology,
   loadQulMorphology,
-  loadRootsIndex,
-  loadLemmasIndex,
 } from "../data/loader.js";
 
 const morphology = new Hono();

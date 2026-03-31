@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadUthmani, loadStructureMeta } from "../data/loader.js";
+import { loadVerseMeta, loadUthmani } from "../data/loader.js";
 import type { SurahMeta } from "../data/types.js";
 
 const surah = new Hono();

@@ -137,8 +137,6 @@ verse.get("/:key/translations", async (c) => {
   if (idsParam) {
     ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
   } else {
-    const catalog = await loadTranslation("index" as unknown as number);
-    // If no filter, return catalog reference only (avoid loading 209 files)
     return c.json({ data: { message: "Specify ?ids= to retrieve translations", hint: "GET /v1/translations for catalog" } });
   }
 
