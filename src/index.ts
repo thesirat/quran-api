@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { analyticsMiddleware } from "./middleware/analytics.js";
 import { cacheMiddleware } from "./middleware/cache.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { verse } from "./routes/verse.js";
@@ -14,6 +15,7 @@ const app = new Hono();
 
 app.use("*", corsMiddleware);
 app.use("*", cacheMiddleware);
+app.use("*", analyticsMiddleware);
 
 // ---------------------------------------------------------------------------
 // Health + meta
