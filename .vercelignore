@@ -1,0 +1,6 @@
+scripts/
+.idea/
+*.py
+*.pyc
+__pycache__/
+.github/

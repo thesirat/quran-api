@@ -1,0 +1,55 @@
+name: Sync Data Sources
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'   # Weekly, Sunday 6am UTC
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Comma-separated sources to sync: qul, morphology, tanzil (or 'all')"
+        required: false
+        default: "all"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests tqdm
+
+      - name: Run sync scripts
+        run: |
+          INPUT="${{ github.event.inputs.sources || 'all' }}"
+          echo "Syncing: $INPUT"
+          if [[ "$INPUT" == "all" || "$INPUT" == *"qul"* ]]; then
+            echo "--- Syncing QUL ---"
+            python3 scripts/sync_qul.py
+          fi
+          if [[ "$INPUT" == "all" || "$INPUT" == *"morphology"* ]]; then
+            echo "--- Syncing Morphology ---"
+            python3 scripts/sync_morphology.py
+          fi
+          if [[ "$INPUT" == "all" || "$INPUT" == *"tanzil"* ]]; then
+            echo "--- Syncing Tanzil ---"
+            python3 scripts/sync_tanzil.py
+          fi
+
+      - name: Commit and push updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || (
+            git commit -m "chore(data): refresh from QUL + corpus + Tanzil [skip ci]" &&
+            git push
+          )
+          echo "Data sync complete."
