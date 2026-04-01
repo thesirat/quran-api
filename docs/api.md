@@ -109,8 +109,38 @@ Returns API metadata and a full endpoint index.
   "sources": ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)", "tanzil.net"],
   "endpoints": {
     "verse": "/v1/verse/:key",
+    "verse_words": "/v1/verse/:key/words",
+    "verse_morphology": "/v1/verse/:key/morphology",
+    "verse_translations": "/v1/verse/:key/translations",
+    "verse_tafsir": "/v1/verse/:key/tafsir/:id",
+    "verse_audio": "/v1/verse/:key/audio",
+    "verse_timestamps": "/v1/verse/:key/timestamps/:recitationId",
+    "surahs": "/v1/surahs",
     "surah": "/v1/surah/:n",
-    ...
+    "surah_verses": "/v1/surah/:n/verses",
+    "surah_tafsir": "/v1/surah/:n/tafsir/:id",
+    "page": "/v1/page/:n",
+    "juz": "/v1/juz/:n",
+    "hizb": "/v1/hizb/:n",
+    "ruku": "/v1/ruku/:n",
+    "manzil": "/v1/manzil/:n",
+    "rub_el_hizb": "/v1/rub-el-hizb/:n",
+    "mushaf": "/v1/mushaf/:n",
+    "morphology": "/v1/morphology/:word_key",
+    "search_root": "/v1/search/root/:root",
+    "search_lemma": "/v1/search/lemma/:lemma",
+    "search_word": "/v1/search/word/:word",
+    "topics": "/v1/topics",
+    "topic": "/v1/topics/:slug",
+    "mutashabihat_list": "/v1/mutashabihat",
+    "mutashabihat": "/v1/mutashabihat/:key",
+    "translations": "/v1/translations",
+    "tafsirs": "/v1/tafsirs",
+    "tafsir_info": "/v1/tafsirs/:id",
+    "tafsir_coverage": "/v1/tafsirs/:id/surahs",
+    "recitations": "/v1/recitations",
+    "word_translations": "/v1/word-translations",
+    "structure": "/v1/structure"
   }
 }
 ```
@@ -138,6 +168,7 @@ Returns a single verse with its text and structural metadata.
 | `morphology` | boolean | `false` | Embed sub-word morphology for all words |
 | `tafsir` | number | — | Embed one tafsir by ID, e.g. `?tafsir=169` |
 | `lang` | string | — | Word translation language when `words=true`, e.g. `en` |
+| `script` | string | `uthmani` | Arabic script variant. One of: `uthmani`, `simple`, `indopak`, `tajweed`, `qpc-hafs` |
 
 **Example**
 ```
@@ -354,6 +385,12 @@ Each segment is `[start_ms, end_ms]` for the corresponding word.
 
 Returns metadata for all 114 surahs.
 
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `revelation_place` | string | Filter by `mecca` or `medina` |
+
 **Response**
 ```json
 {
@@ -409,6 +446,7 @@ Returns all verses of a surah. Supports pagination and the same query parameters
 | `translations` | string | — | — | Embed translations |
 | `words` | boolean | `false` | — | Embed words |
 | `morphology` | boolean | `false` | — | Embed morphology |
+| `script` | string | `uthmani` | — | Arabic script variant (`uthmani`, `simple`, `indopak`, `tajweed`, `qpc-hafs`) |
 
 **Response**
 ```json
@@ -424,19 +462,20 @@ Returns all verses of a surah. Supports pagination and the same query parameters
 
 ### Collections
 
+All collection endpoints accept an optional `?script=` query parameter (`uthmani` | `simple` | `indopak` | `tajweed` | `qpc-hafs`, default `uthmani`) and return the same response shape:
+
+```json
+{
+  "data": [ { "key": "1:1", "surah": 1, "ayah": 1, "text": "...", "meta": { ... } } ],
+  "meta": { "<division>": 1, "total": 7 }
+}
+```
+
 #### `GET /v1/page/:n`
 
 Returns all verses on a Mushaf page.
 
 **Path parameters**: `n` — page number `1–604`.
-
-**Response**
-```json
-{
-  "data": [ { "key": "1:1", "surah": 1, "ayah": 1, "text": "...", "meta": { ... } } ],
-  "meta": { "page": 1, "total": 7 }
-}
-```
 
 ---
 
@@ -460,9 +499,73 @@ Returns all verses in a hizb (one of 60 equal divisions, 2 per juz).
 
 Returns all verses in a ruku (thematic section used in prayer).
 
-**Path parameters**: `n` — ruku number (varies by surah).
+**Path parameters**: `n` — ruku number (positive integer; varies by surah).
 
-All collection endpoints return the same shape as `GET /v1/page/:n`.
+---
+
+#### `GET /v1/manzil/:n`
+
+Returns all verses in a manzil (one of 7 weekly portions used for recitation).
+
+**Path parameters**: `n` — manzil number `1–7`.
+
+---
+
+#### `GET /v1/rub-el-hizb/:n`
+
+Returns all verses in a rub el hizb (quarter-hizb; one of 240 equal divisions).
+
+**Path parameters**: `n` — rub el hizb number `1–240`.
+
+---
+
+### Mushaf Layout
+
+#### `GET /v1/mushaf/:n`
+
+Returns full Mushaf layout data for a page — including line/word counts, verse-to-line mapping, and all verse texts. Unlike `GET /v1/page/:n`, this endpoint adds the QPC layout metadata needed to render a visual Mushaf.
+
+**Path parameters**: `n` — page number `1–604`.
+
+**Query parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `script` | string | `uthmani` | Arabic script variant (`uthmani`, `simple`, `indopak`, `tajweed`, `qpc-hafs`) |
+
+**Response**
+```json
+{
+  "data": {
+    "page": 1,
+    "lines_count": 15,
+    "words_count": 29,
+    "verse_mapping": { "1:1": "1-4", "1:2": "5-7" },
+    "first_verse": "1:1",
+    "last_verse": "1:7",
+    "verses": [
+      { "key": "1:1", "surah": 1, "ayah": 1, "text": "...", "meta": { ... } }
+    ]
+  }
+}
+```
+
+---
+
+### Structure
+
+#### `GET /v1/structure`
+
+Returns the full Tanzil structural metadata index — juz, hizb, rub el hizb, manzil, ruku, and page boundaries for every ayah.
+
+**Response**
+```json
+{
+  "data": { ... }
+}
+```
+
+Returns `503` if the structure data file has not yet been generated (run `scripts/sync_tanzil.py`).
 
 ---
 
@@ -666,6 +769,12 @@ Returns all 5,277 similar phrase pairs (paginated).
 
 Returns the full catalog of 209 available translations.
 
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `language` | string | Case-insensitive substring filter, e.g. `english`, `urdu`, `turkish` |
+
 **Response**
 ```json
 {
@@ -821,6 +930,12 @@ Returns all tafsir entries for an entire surah in one request.
 
 Returns the catalog of 152 available audio recitations.
 
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `segmented` | boolean | Set `true` to return only recitations that have word-level timestamps |
+
 **Response**
 ```json
 {
@@ -839,6 +954,25 @@ Returns the catalog of 152 available audio recitations.
 ```
 
 `segments_count > 0` means word-level timestamps are available via `GET /v1/verse/:key/timestamps/:recitationId`.
+
+---
+
+#### `GET /v1/word-translations`
+
+Returns the catalog of available word-by-word translation languages (used with `?lang=` on word endpoints).
+
+**Response**
+```json
+{
+  "data": [
+    { "id": "en", "name": "English", "direction": "ltr" },
+    { "id": "ur", "name": "Urdu",    "direction": "rtl" }
+  ],
+  "meta": { "total": 22 }
+}
+```
+
+Returns `503` if the word translation catalog has not yet been synced (run `scripts/sync_qul.py`).
 
 ---
 

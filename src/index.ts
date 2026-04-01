@@ -29,9 +29,20 @@ app.get("/", (c) =>
     docs: "https://github.com/your-repo/quran-api",
     sources: ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)", "tanzil.net"],
     endpoints: {
+      // Verse
       verse: "/v1/verse/:key",
-      surah: "/v1/surah/:n",
+      verse_words: "/v1/verse/:key/words",
+      verse_morphology: "/v1/verse/:key/morphology",
+      verse_translations: "/v1/verse/:key/translations",
+      verse_tafsir: "/v1/verse/:key/tafsir/:id",
+      verse_audio: "/v1/verse/:key/audio",
+      verse_timestamps: "/v1/verse/:key/timestamps/:recitationId",
+      // Surah
       surahs: "/v1/surahs",
+      surah: "/v1/surah/:n",
+      surah_verses: "/v1/surah/:n/verses",
+      surah_tafsir: "/v1/surah/:n/tafsir/:id",
+      // Structural collections
       page: "/v1/page/:n",
       juz: "/v1/juz/:n",
       hizb: "/v1/hizb/:n",
@@ -39,19 +50,25 @@ app.get("/", (c) =>
       manzil: "/v1/manzil/:n",
       rub_el_hizb: "/v1/rub-el-hizb/:n",
       mushaf: "/v1/mushaf/:n",
+      // Morphology & search
       morphology: "/v1/morphology/:word_key",
       search_root: "/v1/search/root/:root",
       search_lemma: "/v1/search/lemma/:lemma",
       search_word: "/v1/search/word/:word",
+      // Topics
       topics: "/v1/topics",
+      topic: "/v1/topics/:slug",
+      // Mutashabihat
+      mutashabihat_list: "/v1/mutashabihat",
       mutashabihat: "/v1/mutashabihat/:key",
+      // Catalogs
       translations: "/v1/translations",
       tafsirs: "/v1/tafsirs",
       tafsir_info: "/v1/tafsirs/:id",
       tafsir_coverage: "/v1/tafsirs/:id/surahs",
-      surah_tafsir: "/v1/surah/:n/tafsir/:id",
       recitations: "/v1/recitations",
       word_translations: "/v1/word-translations",
+      // Structure
       structure: "/v1/structure",
     },
   })
