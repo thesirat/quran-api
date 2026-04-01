@@ -169,6 +169,82 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
             Path(tmp_path).unlink(missing_ok=True)
 
 
+async def _download_sqlite(page: Any, click_locator: Any, timeout: int = 60_000) -> list[dict] | None:
+    """
+    Click a SQLite download button, save to a temp file, read with sqlite3,
+    and return the largest table as a list of row dicts.
+    Returns None on failure.
+    """
+    import sqlite3
+
+    tmp_path: str | None = None
+    con = None
+    try:
+        async with page.expect_download(timeout=timeout) as dl_info:
+            await click_locator.click()
+        dl = await dl_info.value
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            tmp_path = tmp.name
+        await dl.save_as(tmp_path)
+
+        con = sqlite3.connect(tmp_path)
+        con.row_factory = sqlite3.Row
+        tables = [
+            r[0]
+            for r in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        if not tables:
+            return None
+        # Use the table with the most rows as the primary data source
+        best = max(
+            tables,
+            key=lambda t: con.execute(f"SELECT COUNT(*) FROM \"{t}\"").fetchone()[0],
+        )
+        rows = [dict(r) for r in con.execute(f"SELECT * FROM \"{best}\"").fetchall()]
+        return rows or None
+    except Exception:
+        return None
+    finally:
+        if con:
+            con.close()
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+
+async def _find_dl_btn_nth(page: Any, i: int) -> tuple[Any, str]:
+    """
+    Return the i-th download button and its format string ("json" or "sqlite").
+    Prefers JSON; falls back to SQLite when the i-th JSON button doesn't exist.
+    """
+    json_loc = page.locator("a, button").filter(has_text="json")
+    if await json_loc.count() > i:
+        return json_loc.nth(i), "json"
+
+    sqlite_loc = page.locator("a, button").filter(has_text="sqlite").or_(
+        page.locator("a, button").filter(has_text=".db")
+    )
+    if await sqlite_loc.count() > i:
+        return sqlite_loc.nth(i), "sqlite"
+
+    # Fall back to json locator (will produce None on download attempt)
+    return json_loc.nth(i), "json"
+
+
+async def _download_file(page: Any, btn: Any, fmt: str) -> Any:
+    """Dispatch to the correct downloader based on format."""
+    if fmt == "sqlite":
+        return await _download_sqlite(page, btn)
+    return await _download_json(page, btn)
+
+
+def _btn_count(json_count: int, sqlite_count: int) -> int:
+    """Return the total number of downloadable resources (JSON preferred, SQLite fallback)."""
+    return max(json_count, sqlite_count)
+
+
 async def _goto(page: Any, url: str, retries: int = 3, timeout: int = 60_000) -> None:
     """Navigate with jitter + exponential-backoff retry on timeout."""
     # Small random delay spreads concurrent tab requests to avoid rate-limiting
@@ -208,42 +284,47 @@ async def _close_ctx(ctx: Any, sem: asyncio.Semaphore) -> None:
 async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[quran-scripts] Quran text editions …")
     ctx, page = await _new_page(browser, sem)
+    count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/quran-script/")
-        btns = page.locator("a, button").filter(has_text="json")
-        count = await btns.count()
+        count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
         print(f"  [quran-scripts] Found {count} download button(s).")
-
-        async def _dl_one(i: int) -> None:
-            sub_ctx, sub_page = await _new_page(browser, sem)
-            try:
-                await _goto(sub_page, f"{QUL_BASE}/resources/quran-script/")
-                btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-                slug = await btn.evaluate(
-                    """el => {
-                        const row = el.closest('[data-slug],[data-resource-slug],tr,.resource-card');
-                        return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
-                    }"""
-                )
-                data = await _download_json(sub_page, btn)
-                if not data:
-                    return
-                out = (
-                    {f"{v['chapter_id']}:{v['verse_number']}": v.get("text", "") for v in data}
-                    if isinstance(data, list)
-                    else data.get("data", data)
-                )
-                name = _slug_to_name(slug) if slug else f"script-{i}"
-                write_json(f"data/quran/{name}.json", out)
-                print(f"  ✓ data/quran/{name}.json  ({len(out):,} verses)")
-            except Exception as exc:
-                print(f"  ⚠ script #{i}: {exc}")
-            finally:
-                await _close_ctx(sub_ctx, sem)
-
-        await atqdm.gather(*[_dl_one(i) for i in range(count)], desc="  [quran-scripts]")
     finally:
         await _close_ctx(ctx, sem)
+
+    async def _dl_one(i: int) -> None:
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await _goto(sub_page, f"{QUL_BASE}/resources/quran-script/")
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
+            slug = await btn.evaluate(
+                """el => {
+                    const row = el.closest('[data-slug],[data-resource-slug],tr,.resource-card');
+                    return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
+                }"""
+            )
+            data = await _download_file(sub_page, btn, fmt)
+            if not data:
+                return
+            out = (
+                {f"{v['chapter_id']}:{v['verse_number']}": v.get("text", "") for v in data}
+                if isinstance(data, list)
+                else data.get("data", data)
+            )
+            name = _slug_to_name(slug) if slug else f"script-{i}"
+            write_json(f"data/quran/{name}.json", out)
+            print(f"  ✓ data/quran/{name}.json  ({len(out):,} verses)")
+        except Exception as exc:
+            print(f"  ⚠ script #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
+
+    await atqdm.gather(*[_dl_one(i) for i in range(count)], desc="  [quran-scripts]")
 
 
 async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -274,8 +355,13 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
             write_json("data/translations/index.json", catalog)
             print(f"  ✓ data/translations/index.json  ({len(catalog)} entries)")
 
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [translations] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [translations] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -283,14 +369,14 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/translation/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
             tid = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row');
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
@@ -337,8 +423,13 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
             write_json("data/tafsirs/index.json", catalog)
             print(f"  ✓ data/tafsirs/index.json  ({len(catalog)} entries)")
 
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [tafsirs] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [tafsirs] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -346,14 +437,14 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/tafsir/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
             tid = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row');
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
@@ -380,8 +471,13 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
     btns_count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/word-translation/")
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [word-translations] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [word-translations] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -389,7 +485,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/word-translation/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
             lang = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row');
@@ -397,7 +493,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
                         || row?.dataset?.language || '';
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("word_translations", data.get("results", []))
@@ -436,12 +532,17 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
             write_json("data/audio/recitations.json", catalog)
             print(f"  ✓ data/audio/recitations.json  ({len(catalog)} reciters)")
 
-        btns_count = await (
-            page.locator("a, button").filter(has_text="segment").or_(
-                page.locator("a, button").filter(has_text="json")
-            )
-        ).count()
-        print(f"  [recitations] Found {btns_count} segment/json download button(s).")
+        btns_count = _btn_count(
+            await (
+                page.locator("a, button").filter(has_text="segment").or_(
+                    page.locator("a, button").filter(has_text="json")
+                )
+            ).count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [recitations] Found {btns_count} segment/json/sqlite download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -449,18 +550,25 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/recitation/")
-            btn = (
-                sub_page.locator("a, button").filter(has_text="segment").or_(
-                    sub_page.locator("a, button").filter(has_text="json")
-                )
-            ).nth(i)
+            _seg_json = sub_page.locator("a, button").filter(has_text="segment").or_(
+                sub_page.locator("a, button").filter(has_text="json")
+            )
+            _sqlite = sub_page.locator("a, button").filter(has_text="sqlite").or_(
+                sub_page.locator("a, button").filter(has_text=".db")
+            )
+            if await _seg_json.count() > i:
+                btn, fmt = _seg_json.nth(i), "json"
+            elif await _sqlite.count() > i:
+                btn, fmt = _sqlite.nth(i), "sqlite"
+            else:
+                btn, fmt = _seg_json.nth(i), "json"
             rid = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row');
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
@@ -485,8 +593,8 @@ async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/mushaf/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        data = await _download_json(page, btn)
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         pages_raw = data if isinstance(data, list) else data.get("mushaf_pages", data.get("data", []))
@@ -520,8 +628,13 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
     btns_count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/quran-metadata/")
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [quran-metadata] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [quran-metadata] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -532,8 +645,8 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/quran-metadata/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-            data = await _download_json(sub_page, btn)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("verses", data.get("data", data.get("results", [])))
@@ -578,11 +691,17 @@ async def scrape_words(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/word/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        if not await btn.count():
-            print("  ⚠ [words] No JSON download buttons found.")
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        avail = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        if not avail:
+            print("  ⚠ [words] No download buttons found.")
             return
-        data = await _download_json(page, btn)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
@@ -621,8 +740,13 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
     btns_count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/morphology/")
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [morphology] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [morphology] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -633,8 +757,8 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/morphology/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-            data = await _download_json(sub_page, btn)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
@@ -681,11 +805,17 @@ async def scrape_topics(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/topic/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        if not await btn.count():
-            print("  ⚠ [topics] No JSON download buttons found.")
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        avail = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        if not avail:
+            print("  ⚠ [topics] No download buttons found.")
             return
-        data = await _download_json(page, btn)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         items = data if isinstance(data, list) else data.get("topics", data.get("data", data.get("results", [])))
@@ -715,11 +845,17 @@ async def scrape_mutashabihat(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/mutashabihat/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        if not await btn.count():
-            print("  ⚠ [mutashabihat] No JSON download buttons found.")
+        avail = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        if not avail:
+            print("  ⚠ [mutashabihat] No download buttons found.")
             return
-        data = await _download_json(page, btn)
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         items = data if isinstance(data, list) else data.get("results", data.get("data", []))
@@ -752,8 +888,13 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
     btns_count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/transliteration/")
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [transliteration] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [transliteration] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -766,7 +907,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/transliteration/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
             meta_info = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row,.resource-card');
@@ -778,7 +919,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
                     };
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("transliterations", data.get("data", data.get("results", [])))
@@ -822,8 +963,13 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
     btns_count = 0
     try:
         await _goto(page, f"{QUL_BASE}/resources/chapter-info/")
-        btns_count = await page.locator("a, button").filter(has_text="json").count()
-        print(f"  [surah-info] Found {btns_count} JSON download button(s).")
+        btns_count = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        print(f"  [surah-info] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -836,7 +982,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/chapter-info/")
-            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            btn, fmt = await _find_dl_btn_nth(sub_page, i)
             meta_info = await btn.evaluate(
                 """el => {
                     const row = el.closest('tr,[data-id],.resource-row,.resource-card');
@@ -846,7 +992,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
                     };
                 }"""
             )
-            data = await _download_json(sub_page, btn)
+            data = await _download_file(sub_page, btn, fmt)
             if not data:
                 return
             items = data if isinstance(data, list) else data.get("chapter_infos", data.get("data", data.get("results", [])))
@@ -887,11 +1033,17 @@ async def scrape_similar_ayahs(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/similar-ayah/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        if not await btn.count():
-            print("  ⚠ [similar-ayahs] No JSON download buttons found.")
+        avail = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        if not avail:
+            print("  ⚠ [similar-ayahs] No download buttons found.")
             return
-        data = await _download_json(page, btn)
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         items = data if isinstance(data, list) else data.get("similar_ayahs", data.get("results", data.get("data", [])))
@@ -921,11 +1073,17 @@ async def scrape_ayah_themes(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     try:
         await _goto(page, f"{QUL_BASE}/resources/ayah-theme/")
-        btn = page.locator("a, button").filter(has_text="json").first
-        if not await btn.count():
-            print("  ⚠ [ayah-themes] No JSON download buttons found.")
+        avail = _btn_count(
+            await page.locator("a, button").filter(has_text="json").count(),
+            await page.locator("a, button").filter(has_text="sqlite").or_(
+                page.locator("a, button").filter(has_text=".db")
+            ).count(),
+        )
+        if not avail:
+            print("  ⚠ [ayah-themes] No download buttons found.")
             return
-        data = await _download_json(page, btn)
+        btn, fmt = await _find_dl_btn_nth(page, 0)
+        data = await _download_file(page, btn, fmt)
         if not data:
             return
         items = data if isinstance(data, list) else data.get("ayah_themes", data.get("results", data.get("data", [])))
