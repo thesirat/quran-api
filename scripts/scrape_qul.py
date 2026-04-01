@@ -40,7 +40,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urljoin
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -58,11 +58,24 @@ def _format_download_exc(tag: str, exc: BaseException, max_len: int = 220) -> st
     return msg
 
 
+def _collapse_error_note_for_grouping(line: str) -> str:
+    """Strip per-row indices and Playwright call logs so identical failures aggregate."""
+    s = line.split("\nCall log:")[0].strip()
+    s = re.sub(r"btn #\d+", "btn #N", s)
+    s = re.sub(r"row \d+", "row N", s)
+    s = re.sub(r"\(id=[^)]*\)", "(id=…)", s)
+    s = re.sub(r"script row \d+", "script row N", s)
+    s = re.sub(r"nth\(\d+\)", "nth(N)", s)
+    if len(s) > 380:
+        s = s[:377] + "..."
+    return s
+
+
 def _print_download_error_summary(tag: str, notes: list[str], *, indent: str = "  ") -> None:
     """Print aggregated reasons when error_notes were collected from _download_file."""
     if not notes:
         return
-    c = Counter(notes)
+    c = Counter(_collapse_error_note_for_grouping(n) for n in notes)
     distinct = len(c)
     print(f"{indent}[{tag}] download failure detail: {len(notes)} event(s), {distinct} distinct reason(s)")
     for line, count in c.most_common(20):
@@ -70,10 +83,15 @@ def _print_download_error_summary(tag: str, notes: list[str], *, indent: str = "
     if distinct > 20:
         print(f"{indent}  … ({distinct - 20} more distinct reason(s) not shown)")
     blob = " ".join(notes).lower()
-    if "timeout" in blob or "expect_download" in blob:
+    if "locator.click" in blob or "waiting for locator" in blob:
         print(
-            f"{indent}  ⓘ  Timeouts often mean the click did not start a browser download "
-            "(e.g. login modal or in-page UI). Try QUL_EMAIL / QUL_PASSWORD and re-run."
+            f"{indent}  ⓘ  Click timeout: the JSON control exists (often href=\"#_\") but Playwright could not "
+            f"complete the click — try scrolling/layout, or reduce load with env QUL_MAX_TABS=12 (default {MAX_TABS})."
+        )
+    elif "timeout" in blob or "expect_download" in blob:
+        print(
+            f"{indent}  ⓘ  Download timeouts often mean no file started (login modal, etc.). "
+            "Confirm QUL_EMAIL / QUL_PASSWORD if downloads require auth."
         )
 
 
@@ -112,8 +130,19 @@ def _print_write_batch_summary(
 # Each context is ~150MB; 5 contexts = ~750MB, well within GitHub Actions 7GB.
 NUM_CONTEXTS = 5
 
-# Max concurrent tabs open across ALL contexts combined.
-MAX_TABS = 80
+
+def _env_int(name: str, default: int, *, lo: int = 1, hi: int = 128) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(lo, min(hi, int(raw)))
+    except ValueError:
+        return default
+
+
+# Max concurrent tabs across all contexts. High values + many listing downloads → click timeouts on QUL.
+MAX_TABS = _env_int("QUL_MAX_TABS", 80, lo=1, hi=128)
 
 # Filled by main() after login; shared across all contexts via storage_state.
 _STORAGE_STATE: dict | None = None
@@ -210,10 +239,24 @@ async def _login(page: Any) -> bool:
     return False
 
 
+async def _trigger_download_click(click_locator: Any, *, budget_ms: int) -> None:
+    """
+    Scroll the control into view and click. QUL uses href=\"#_\" ajax links; clicks can time out if
+    the row is off-screen, covered, or the main thread is busy under many parallel tabs.
+    """
+    click_budget = max(8_000, min(75_000, budget_ms - 20_000))
+    scroll_timeout = min(20_000, max(5_000, click_budget // 3))
+    await click_locator.scroll_into_view_if_needed(timeout=scroll_timeout)
+    try:
+        await click_locator.click(timeout=click_budget)
+    except Exception:
+        await click_locator.click(force=True, timeout=min(45_000, click_budget))
+
+
 async def _download_json(
     page: Any,
     click_locator: Any,
-    timeout: int = 30_000,
+    timeout: int = 90_000,
     *,
     error_notes: list[str] | None = None,
     error_tag: str = "",
@@ -230,7 +273,7 @@ async def _download_json(
     tmp_path: str | None = None
     try:
         async with page.expect_download(timeout=timeout) as dl_info:
-            await click_locator.click()
+            await _trigger_download_click(click_locator, budget_ms=timeout)
         dl = await dl_info.value
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
@@ -280,7 +323,7 @@ async def _download_sqlite(
     con = None
     try:
         async with page.expect_download(timeout=timeout) as dl_info:
-            await click_locator.click()
+            await _trigger_download_click(click_locator, budget_ms=timeout)
         dl = await dl_info.value
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
@@ -352,6 +395,169 @@ async def _download_file(
     if fmt == "sqlite":
         return await _download_sqlite(page, btn, error_notes=error_notes, error_tag=error_tag)
     return await _download_json(page, btn, error_notes=error_notes, error_tag=error_tag)
+
+
+def _absolute_qul_url(href: str | None) -> str | None:
+    """Turn a site-relative or absolute href into an absolute URL under QUL_BASE."""
+    if not href or href.startswith("#"):
+        return None
+    if href.startswith("http"):
+        return href
+    return urljoin(QUL_BASE.rstrip("/") + "/", href)
+
+
+async def _fetch_json_via_authenticated_http(
+    page: Any,
+    url: str,
+    *,
+    error_notes: list[str] | None = None,
+    error_tag: str = "",
+    timeout: int = 120_000,
+) -> Any:
+    """
+    GET JSON using the browser context cookie jar (same session as Playwright).
+    Use for tafsir (and similar) detail pages where <a target="_blank"> makes click downloads awkward.
+    """
+    tag = error_tag or "http json"
+    req = page.context.request
+    try:
+        resp = await req.get(url, timeout=timeout)
+    except Exception as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
+        return None
+    if resp.status in (401, 403):
+        if error_notes is not None:
+            error_notes.append(
+                _format_download_exc(
+                    tag,
+                    PermissionError(f"HTTP {resp.status} — set QUL_EMAIL / QUL_PASSWORD if downloads require auth"),
+                )
+            )
+        return None
+    if resp.status != 200:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, RuntimeError(f"HTTP {resp.status} for {url[:80]}")))
+        return None
+    ct = (resp.headers.get("content-type") or "").lower()
+    body = await resp.body()
+    if not body:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("empty response body")))
+        return None
+    if "text/html" in ct:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("response is HTML, not JSON")))
+        return None
+    head = body[:400].lower()
+    if head.strip()[:1] == b"<" and (b"<!doctype" in head or b"<html" in head):
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("body looks like HTML")))
+        return None
+    try:
+        raw = body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
+        return None
+    if not raw.strip():
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("decoded body is empty")))
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        head_txt = raw.strip()[:120].replace("\n", " ")
+        je = ValueError(f"invalid JSON ({exc.msg} at pos {exc.pos}); starts with {head_txt!r}")
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, je))
+        return None
+
+
+async def _fetch_sqlite_via_authenticated_http(
+    page: Any,
+    url: str,
+    *,
+    error_notes: list[str] | None = None,
+    error_tag: str = "",
+    timeout: int = 120_000,
+) -> list[dict] | None:
+    """GET a SQLite file using browser cookies; return largest table as row dicts (same shape as _download_sqlite)."""
+    import sqlite3
+
+    tag = error_tag or "http sqlite"
+    req = page.context.request
+    tmp_path: str | None = None
+    con = None
+    try:
+        resp = await req.get(url, timeout=timeout)
+    except Exception as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
+        return None
+    if resp.status in (401, 403):
+        if error_notes is not None:
+            error_notes.append(
+                _format_download_exc(
+                    tag,
+                    PermissionError(f"HTTP {resp.status} — set QUL_EMAIL / QUL_PASSWORD if downloads require auth"),
+                )
+            )
+        return None
+    if resp.status != 200:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, RuntimeError(f"HTTP {resp.status} for {url[:80]}")))
+        return None
+    ct = (resp.headers.get("content-type") or "").lower()
+    if "text/html" in ct:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("response is HTML, not SQLite")))
+        return None
+    body = await resp.body()
+    if not body or len(body) < 16:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("sqlite body missing or too small")))
+        return None
+    head = body[:400].lower()
+    if head.strip()[:1] == b"<" and (b"<!doctype" in head or b"<html" in head):
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, ValueError("body looks like HTML")))
+        return None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            tmp_path = tmp.name
+        Path(tmp_path).write_bytes(body)
+        con = sqlite3.connect(tmp_path)
+        con.row_factory = sqlite3.Row
+        tables = [
+            r[0]
+            for r in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        if not tables:
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, ValueError("sqlite file has no tables")))
+            return None
+        best = max(
+            tables,
+            key=lambda t: con.execute(f"SELECT COUNT(*) FROM \"{t}\"").fetchone()[0],
+        )
+        rows = [dict(r) for r in con.execute(f"SELECT * FROM \"{best}\"").fetchall()]
+        if not rows:
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, ValueError(f'table "{best}" is empty')))
+            return None
+        return rows
+    except Exception as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
+        return None
+    finally:
+        if con:
+            con.close()
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 # Font detail pages use many labels: Download woff / woff2 / ttf / otf / json / Ligatures (often .json.bz2), etc.
@@ -864,6 +1070,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
 async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[tafsirs] Tafsirs …")
     ctx, page = await _new_page(browser, sem)
+    tafsir_rows = 'tr:has(a[href*="/resources/tafsir/"])'
     try:
         await _goto(page, f"{QUL_BASE}/resources/tafsir/")
         catalog_raw = await page.evaluate(
@@ -887,13 +1094,11 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
             write_json("data/tafsirs/index.json", catalog)
             print(f"  ✓ data/tafsirs/index.json  ({len(catalog)} entries)")
 
-        btns_count = _btn_count(
-            await page.locator("a, button").filter(has_text="json").count(),
-            await page.locator("a, button").filter(has_text="sqlite").or_(
-                page.locator("a, button").filter(has_text=".db")
-            ).count(),
+        btns_count = await page.locator(tafsir_rows).count()
+        print(
+            f"  [tafsirs] Found {btns_count} resource row(s) "
+            "(HTTP GET from row /download links; detail page if absent)."
         )
-        print(f"  [tafsirs] Found {btns_count} download button(s).")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -903,20 +1108,69 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/tafsir/")
-            btn, fmt = await _find_dl_btn_nth(sub_page, i)
-            tid = await btn.evaluate(
-                """el => {
-                    const row = el.closest('tr,[data-id],.resource-row');
-                    return row?.dataset?.id || row?.dataset?.resourceId || '';
-                }"""
+            rows = sub_page.locator(tafsir_rows)
+            row = rows.nth(i)
+            tid = await row.evaluate(
+                """r => String(r.dataset?.id || r.dataset?.resourceId || '')"""
             )
-            data = await _download_file(
-                sub_page,
-                btn,
-                fmt,
-                error_notes=download_errors,
-                error_tag=f"tafsir btn #{i} (id={tid})",
-            )
+            err_tag = f"tafsir row #{i} (id={tid})"
+            data: Any = None
+            # Listing rows embed real /download hrefs in the format dropdown (no need to open it in the UI).
+            row_download = row.locator('a[href*="/resources/tafsir/"][href$="/download"]')
+            json_row = row_download.filter(has_text=re.compile(r"\bjson\b", re.I))
+            if await json_row.count() > 0:
+                dl_url = _absolute_qul_url(await json_row.first.get_attribute("href"))
+                if dl_url:
+                    data = await _fetch_json_via_authenticated_http(
+                        sub_page,
+                        dl_url,
+                        error_notes=download_errors,
+                        error_tag=err_tag,
+                    )
+            if not data:
+                sqlite_row = row_download.filter(
+                    has_text=re.compile(r"\bsqlite\b|\.db\b", re.I)
+                )
+                if await sqlite_row.count() > 0:
+                    s_url = _absolute_qul_url(await sqlite_row.first.get_attribute("href"))
+                    if s_url:
+                        data = await _fetch_sqlite_via_authenticated_http(
+                            sub_page,
+                            s_url,
+                            error_notes=download_errors,
+                            error_tag=err_tag,
+                        )
+            if not data:
+                detail_links = row.locator('a[href*="/resources/tafsir/"]:not([href$="/download"])')
+                if await detail_links.count() == 0:
+                    return "no_btn"
+                detail_url = _absolute_qul_url(await detail_links.first.get_attribute("href"))
+                if not detail_url:
+                    return "no_btn"
+                await _goto(sub_page, detail_url)
+                json_a = sub_page.locator("a.btn-success").filter(has_text=re.compile(r"\bjson\b", re.I))
+                if await json_a.count() > 0:
+                    dl_url = _absolute_qul_url(await json_a.first.get_attribute("href"))
+                    if dl_url:
+                        data = await _fetch_json_via_authenticated_http(
+                            sub_page,
+                            dl_url,
+                            error_notes=download_errors,
+                            error_tag=err_tag,
+                        )
+                if not data:
+                    sqlite_a = sub_page.locator("a.btn-success").filter(
+                        has_text=re.compile(r"\bsqlite\b|\.db\b", re.I)
+                    )
+                    if await sqlite_a.count() > 0:
+                        s_url = _absolute_qul_url(await sqlite_a.first.get_attribute("href"))
+                        if s_url:
+                            data = await _fetch_sqlite_via_authenticated_http(
+                                sub_page,
+                                s_url,
+                                error_notes=download_errors,
+                                error_tag=err_tag,
+                            )
             if not data:
                 return "no_data"
             ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
@@ -933,7 +1187,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
             print(f"  ✓ tafsir {tid}: {len(by_surah)} surah file(s)")
             return "written"
         except Exception as exc:
-            print(f"  ⚠ tafsir btn #{i}: {exc}")
+            print(f"  ⚠ tafsir row #{i}: {exc}")
             return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
