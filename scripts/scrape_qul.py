@@ -38,15 +38,18 @@ from utils import write_json  # noqa: E402
 
 QUL_BASE = "https://qul.tarteel.ai"
 
-# Max simultaneous browser contexts (each context = one Chromium process).
-# Raise on machines with more RAM; lower if memory-constrained.
-MAX_CONTEXTS = 4
+# Max simultaneous browser contexts (each context = one Chromium instance).
+# GitHub Actions has 7GB RAM; Chromium takes ~100-150MB per context.
+MAX_CONTEXTS = 10
 
-# Max concurrent download-URL resolutions inside a single context.
-DOWNLOADS_PER_CONTEXT = 3
+# Max concurrent downloads across all contexts.
+DOWNLOADS_PER_CONTEXT = 20
 
 # Filled by main() after login; all contexts use these cookies.
 _STORAGE_STATE: dict | None = None
+
+# Single shared browser context — all scrapers open tabs here instead of new contexts.
+_SHARED_CTX: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -165,17 +168,10 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
 
 
 async def _new_page(browser: Any, sem: asyncio.Semaphore) -> tuple[Any, Any]:
-    """Acquire semaphore slot, create a new browser context + page (with cookies if logged in)."""
+    """Acquire semaphore slot and open a new tab in the shared context."""
     await sem.acquire()
-    kwargs: dict = {
-        "user_agent": "Mozilla/5.0 (compatible; quran-api-sync/2.0)",
-        "accept_downloads": True,
-    }
-    if _STORAGE_STATE is not None:
-        kwargs["storage_state"] = _STORAGE_STATE
-    ctx = await browser.new_context(**kwargs)
-    page = await ctx.new_page()
-    return ctx, page
+    page = await _SHARED_CTX.new_page()
+    return page, page  # ctx=page so _close_ctx just closes the tab
 
 
 async def _close_ctx(ctx: Any, sem: asyncio.Semaphore) -> None:
@@ -509,7 +505,7 @@ SCRAPERS: dict[str, Any] = {
 
 
 async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
-    global _STORAGE_STATE
+    global _STORAGE_STATE, _SHARED_CTX
 
     try:
         from playwright.async_api import async_playwright
@@ -518,12 +514,12 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         sys.exit(1)
 
     t0 = time.time()
-    print(f"Starting QUL scrape: {', '.join(resources)}  (headless={headless}, contexts={max_contexts})")
+    print(f"Starting QUL scrape: {', '.join(resources)}  (headless={headless}, tabs={max_contexts})")
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=headless)
 
-        # Login once, capture cookies, share across all parallel contexts
+        # Login once in a temporary context, capture storage state
         login_ctx = await browser.new_context(
             user_agent="Mozilla/5.0 (compatible; quran-api-sync/2.0)",
             accept_downloads=True,
@@ -533,6 +529,13 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         await _login(login_page)
         _STORAGE_STATE = await login_ctx.storage_state()
         await login_ctx.close()
+
+        # Create ONE shared context — all scrapers open tabs here (no per-download contexts)
+        _SHARED_CTX = await browser.new_context(
+            user_agent="Mozilla/5.0 (compatible; quran-api-sync/2.0)",
+            accept_downloads=True,
+            storage_state=_STORAGE_STATE,
+        )
 
         sem = asyncio.Semaphore(max_contexts)
         dl_sem = asyncio.Semaphore(DOWNLOADS_PER_CONTEXT)
@@ -546,6 +549,7 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
             for name in resources
             if name in SCRAPERS
         ])
+        await _SHARED_CTX.close()
         await browser.close()
 
     print(f"\n✓ QUL scrape complete. ({time.time() - t0:.0f}s)")
