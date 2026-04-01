@@ -46,6 +46,7 @@ jobs:
         env:
           QUL_EMAIL: ${{ secrets.QUL_EMAIL }}
           QUL_PASSWORD: ${{ secrets.QUL_PASSWORD }}
+          PYTHONUNBUFFERED: "1"
         run: |
           INPUT="${{ github.event.inputs.sources || 'all' }}"
           echo "Syncing: $INPUT"
