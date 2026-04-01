@@ -26,6 +26,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import sys
 import tempfile
 import time
@@ -168,6 +169,23 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
             Path(tmp_path).unlink(missing_ok=True)
 
 
+async def _goto(page: Any, url: str, retries: int = 3, timeout: int = 60_000) -> None:
+    """Navigate with jitter + exponential-backoff retry on timeout."""
+    # Small random delay spreads concurrent tab requests to avoid rate-limiting
+    await asyncio.sleep(random.uniform(0, 1.5))
+    for attempt in range(retries):
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            return
+        except Exception as exc:
+            if attempt == retries - 1:
+                raise
+            # Jitter on top of backoff to avoid thundering herd on retry
+            wait = 2 ** attempt + random.uniform(0, 1)
+            print(f"  ↻ retry {attempt + 1}/{retries} for {url} ({exc.__class__.__name__}) — waiting {wait:.1f}s")
+            await asyncio.sleep(wait)
+
+
 async def _new_page(browser: Any, sem: asyncio.Semaphore) -> tuple[Any, Any]:
     """Acquire semaphore slot and open a tab in the next context (round-robin)."""
     global _ctx_rr
@@ -191,7 +209,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[quran-scripts] Quran text editions …")
     ctx, page = await _new_page(browser, sem)
     try:
-        await page.goto(f"{QUL_BASE}/resources/quran-script/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/quran-script/")
         btns = page.locator("a, button").filter(has_text="json")
         count = await btns.count()
         print(f"  [quran-scripts] Found {count} download button(s).")
@@ -199,7 +217,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
         async def _dl_one(i: int) -> None:
             sub_ctx, sub_page = await _new_page(browser, sem)
             try:
-                await sub_page.goto(f"{QUL_BASE}/resources/quran-script/", wait_until="domcontentloaded")
+                await _goto(sub_page, f"{QUL_BASE}/resources/quran-script/")
                 btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
                 slug = await btn.evaluate(
                     """el => {
@@ -232,7 +250,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[translations] Verse translations …")
     ctx, page = await _new_page(browser, sem)
     try:
-        await page.goto(f"{QUL_BASE}/resources/translation/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/translation/")
 
         catalog_raw = await page.evaluate(
             """() => Array.from(document.querySelectorAll('tr[data-id],[data-resource-id]')).map(r => ({
@@ -264,7 +282,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     async def _dl_one(i: int) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
-            await sub_page.goto(f"{QUL_BASE}/resources/translation/", wait_until="domcontentloaded")
+            await _goto(sub_page, f"{QUL_BASE}/resources/translation/")
             btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
             tid = await btn.evaluate(
                 """el => {
@@ -297,7 +315,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[tafsirs] Tafsirs …")
     ctx, page = await _new_page(browser, sem)
     try:
-        await page.goto(f"{QUL_BASE}/resources/tafsir/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/tafsir/")
         catalog_raw = await page.evaluate(
             """() => Array.from(document.querySelectorAll('tr[data-id],[data-resource-id]')).map(r => ({
                 id: r.dataset.id || r.dataset.resourceId || '',
@@ -327,7 +345,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     async def _dl_one(i: int) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
-            await sub_page.goto(f"{QUL_BASE}/resources/tafsir/", wait_until="domcontentloaded")
+            await _goto(sub_page, f"{QUL_BASE}/resources/tafsir/")
             btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
             tid = await btn.evaluate(
                 """el => {
@@ -345,6 +363,8 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
                 by_surah.setdefault(surah, []).append(ayah)
             for surah, surah_ayahs in by_surah.items():
                 write_json(f"data/tafsirs/{tid}/{surah}.json", {"ayahs": surah_ayahs})
+            if by_surah:
+                print(f"  ✓ tafsir {tid}: {len(by_surah)} surah file(s)")
         except Exception as exc:
             print(f"  ⚠ tafsir btn #{i}: {exc}")
         finally:
@@ -359,7 +379,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
     ctx, page = await _new_page(browser, sem)
     btns_count = 0
     try:
-        await page.goto(f"{QUL_BASE}/resources/word-translation/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/word-translation/")
         btns_count = await page.locator("a, button").filter(has_text="json").count()
         print(f"  [word-translations] Found {btns_count} JSON download button(s).")
     finally:
@@ -368,7 +388,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
     async def _dl_one(i: int) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
-            await sub_page.goto(f"{QUL_BASE}/resources/word-translation/", wait_until="domcontentloaded")
+            await _goto(sub_page, f"{QUL_BASE}/resources/word-translation/")
             btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
             lang = await btn.evaluate(
                 """el => {
@@ -403,7 +423,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
     ctx, page = await _new_page(browser, sem)
     btns_count = 0
     try:
-        await page.goto(f"{QUL_BASE}/resources/recitation/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/recitation/")
         catalog_raw = await page.evaluate(
             """() => Array.from(document.querySelectorAll('tr[data-id],[data-resource-id]')).map(r => ({
                 id: r.dataset.id || r.dataset.resourceId || '',
@@ -428,7 +448,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
     async def _dl_one(i: int) -> None:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
-            await sub_page.goto(f"{QUL_BASE}/resources/recitation/", wait_until="domcontentloaded")
+            await _goto(sub_page, f"{QUL_BASE}/resources/recitation/")
             btn = (
                 sub_page.locator("a, button").filter(has_text="segment").or_(
                     sub_page.locator("a, button").filter(has_text="json")
@@ -464,7 +484,7 @@ async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[mushaf] Mushaf page layouts …")
     ctx, page = await _new_page(browser, sem)
     try:
-        await page.goto(f"{QUL_BASE}/resources/mushaf/", wait_until="domcontentloaded")
+        await _goto(page, f"{QUL_BASE}/resources/mushaf/")
         btn = page.locator("a, button").filter(has_text="json").first
         data = await _download_json(page, btn)
         if not data:
