@@ -572,9 +572,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--contexts",
         type=int,
-        default=MAX_CONTEXTS,
+        default=NUM_CONTEXTS,
         metavar="N",
-        help=f"Max parallel browser contexts (default: {MAX_CONTEXTS})",
+        help=f"Max parallel browser contexts (default: {NUM_CONTEXTS})",
     )
     args = parser.parse_args()
 
