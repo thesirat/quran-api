@@ -5,14 +5,18 @@ const topics = new Hono();
 
 // ---------------------------------------------------------------------------
 // GET /v1/topics  — full topic catalog
+// Optional query: ?name=prayer  (case-insensitive substring match on topic name)
 // ---------------------------------------------------------------------------
 topics.get("/", async (c) => {
   const data = await loadTopics();
-  const result = Object.entries(data).map(([slug, t]) => ({
-    slug,
-    name: t.name,
-    verse_count: t.verse_keys.length,
-  }));
+  const nameFilter = c.req.query("name")?.toLowerCase();
+  const result = Object.entries(data)
+    .filter(([, t]) => !nameFilter || t.name?.toLowerCase().includes(nameFilter))
+    .map(([slug, t]) => ({
+      slug,
+      name: t.name,
+      verse_count: t.verse_keys.length,
+    }));
   return c.json({ data: result, meta: { total: result.length } });
 });
 

@@ -10,6 +10,8 @@ import { search } from "./routes/search.js";
 import { topics } from "./routes/topics.js";
 import { mutashabihat } from "./routes/mutashabihat.js";
 import { catalog } from "./routes/catalog.js";
+import { mushaf } from "./routes/mushaf.js";
+import { structure } from "./routes/structure.js";
 
 const app = new Hono();
 
@@ -34,6 +36,9 @@ app.get("/", (c) =>
       juz: "/v1/juz/:n",
       hizb: "/v1/hizb/:n",
       ruku: "/v1/ruku/:n",
+      manzil: "/v1/manzil/:n",
+      rub_el_hizb: "/v1/rub-el-hizb/:n",
+      mushaf: "/v1/mushaf/:n",
       morphology: "/v1/morphology/:word_key",
       search_root: "/v1/search/root/:root",
       search_lemma: "/v1/search/lemma/:lemma",
@@ -46,6 +51,8 @@ app.get("/", (c) =>
       tafsir_coverage: "/v1/tafsirs/:id/surahs",
       surah_tafsir: "/v1/surah/:n/tafsir/:id",
       recitations: "/v1/recitations",
+      word_translations: "/v1/word-translations",
+      structure: "/v1/structure",
     },
   })
 );
@@ -56,12 +63,14 @@ app.get("/", (c) =>
 app.route("/v1/verse", verse);
 app.route("/v1/surahs", surah);       // list all
 app.route("/v1/surah", surah);        // /v1/surah/:n + /v1/surah/:n/verses
-app.route("/v1", collection);         // /v1/page, /v1/juz, /v1/hizb, /v1/ruku
+app.route("/v1", collection);         // /v1/page, /v1/juz, /v1/hizb, /v1/ruku, /v1/manzil, /v1/rub-el-hizb
+app.route("/v1", mushaf);             // /v1/mushaf/:n
 app.route("/v1/morphology", morphology);
 app.route("/v1/search", search);
 app.route("/v1/topics", topics);
 app.route("/v1/mutashabihat", mutashabihat);
-app.route("/v1", catalog);            // /v1/translations, /v1/tafsirs, /v1/recitations
+app.route("/v1", catalog);            // /v1/translations, /v1/tafsirs, /v1/recitations, /v1/word-translations
+app.route("/v1", structure);          // /v1/structure
 
 // ---------------------------------------------------------------------------
 // 404 catch-all

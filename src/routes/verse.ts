@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import {
   loadVerseMeta,
-  loadUthmani,
+  loadScript,
+  VALID_SCRIPTS,
+  type ScriptName,
   loadWordsArabic,
   loadWordTranslation,
   loadCorpusMorphology,
@@ -28,7 +30,7 @@ function parseKey(raw: string): { surah: number; ayah: number } | null {
 
 // ---------------------------------------------------------------------------
 // GET /v1/verse/:key
-// Query: ?translations=131,85 &words=true &morphology=true &tafsir=140 &fields=text,meta
+// Query: ?translations=131,85 &words=true &morphology=true &tafsir=140 &script=uthmani
 // ---------------------------------------------------------------------------
 verse.get("/:key", async (c) => {
   const parsed = parseKey(c.req.param("key"));
@@ -37,10 +39,16 @@ verse.get("/:key", async (c) => {
   const { surah, ayah } = parsed;
   const key = `${surah}:${ayah}`;
 
-  const [verseMeta, uthmani] = await Promise.all([loadVerseMeta(), loadUthmani()]);
+  const scriptParam = c.req.query("script") ?? "uthmani";
+  if (!(VALID_SCRIPTS as readonly string[]).includes(scriptParam)) {
+    return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
+  }
+  const script = scriptParam as ScriptName;
+
+  const [verseMeta, scriptText] = await Promise.all([loadVerseMeta(), loadScript(script)]);
 
   const meta = verseMeta[key];
-  const text = uthmani[key];
+  const text = scriptText[key];
   if (!meta || text === undefined) {
     return c.json({ status: 404, type: "not_found", title: "Verse not found", detail: `Key '${key}' does not exist` }, 404);
   }
@@ -185,6 +193,8 @@ verse.get("/:key/audio", async (c) => {
     name: r.name,
     reciter: r.reciter,
     style: r.style,
+    audio_format: r.audio_format,
+    files_count: r.files_count,
     url: r.relative_path
       ? `https://audio.qurancdn.com/${r.relative_path}${filename}`
       : `https://everyayah.com/data/${encodeURIComponent(r.reciter ?? "Alafasy_128kbps")}/${filename}`,

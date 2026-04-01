@@ -226,3 +226,13 @@ export interface TanzilSajda {
   aya: number;
   type: "recommended" | "obligatory";
 }
+
+// ---------------------------------------------------------------------------
+// Word translation catalog
+// ---------------------------------------------------------------------------
+export interface WordTranslationCatalogEntry {
+  lang: string;
+  id: number;
+  name?: string;
+  direction?: "ltr" | "rtl";
+}

@@ -44,7 +44,7 @@ QUL_BASE = "https://qul.tarteel.ai"
 NUM_CONTEXTS = 5
 
 # Max concurrent tabs open across ALL contexts combined.
-MAX_TABS = 77
+MAX_TABS = 100
 
 # Filled by main() after login; shared across all contexts via storage_state.
 _STORAGE_STATE: dict | None = None

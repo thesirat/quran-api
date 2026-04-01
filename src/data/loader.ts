@@ -91,19 +91,20 @@ import type {
   MutashabihatPair,
   MushafPage,
   TanzilMeta,
+  WordTranslationCatalogEntry,
 } from "./types.js";
 
 export const loadVerseMeta = () =>
   loadJson<Record<string, VerseMeta>>("data/verses/meta.json");
 
-export const loadUthmani = () =>
-  loadJson<Record<string, string>>("data/quran/uthmani.json");
+export const VALID_SCRIPTS = ["uthmani", "simple", "indopak", "tajweed", "qpc-hafs"] as const;
+export type ScriptName = (typeof VALID_SCRIPTS)[number];
 
-export const loadSimple = () =>
-  tryLoadJson<Record<string, string>>("data/quran/simple.json");
-
-export const loadTajweed = () =>
-  tryLoadJson<Record<string, string>>("data/quran/tajweed.json");
+export async function loadScript(script: ScriptName): Promise<Record<string, string>> {
+  const data = await tryLoadJson<Record<string, string>>(`data/quran/${script}.json`);
+  if (data) return data;
+  throw new Error(`Script data not available: ${script}. Run sync_qul.py --quran-scripts.`);
+}
 
 export const loadWordsArabic = () =>
   loadJson<Record<string, Omit<WordData, "key">>>("data/words/arabic.json");
@@ -141,8 +142,9 @@ export const loadTafsirCatalog = () =>
 export const loadRecitations = () =>
   loadJson<RecitationEntry[]>("data/audio/recitations.json");
 
+// Each segment entry is [word_position, start_ms, duration_ms, end_ms?]
 export const loadAudioSegments = (recitationId: number | string) =>
-  tryLoadJson<Record<string, unknown>>(`data/audio/segments/${recitationId}.json`);
+  tryLoadJson<Record<string, number[][]>>(`data/audio/segments/${recitationId}.json`);
 
 export const loadTopics = () =>
   loadJson<Record<string, TopicEntry>>("data/topics/data.json");
@@ -155,3 +157,6 @@ export const loadMushafPages = () =>
 
 export const loadStructureMeta = () =>
   loadJson<TanzilMeta>("data/structure/meta.json");
+
+export const loadWordTranslationCatalog = () =>
+  tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadUthmani } from "../data/loader.js";
+import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName } from "../data/loader.js";
 
 const collection = new Hono();
 
@@ -21,12 +21,17 @@ async function versesByField(
     .map(([key]) => key);
 }
 
-async function buildVerseList(keys: string[]) {
-  const [meta, uthmani] = await Promise.all([loadVerseMeta(), loadUthmani()]);
+async function buildVerseList(keys: string[], script: ScriptName = "uthmani") {
+  const [meta, text] = await Promise.all([loadVerseMeta(), loadScript(script)]);
   return keys.map((key) => {
     const [s, a] = key.split(":").map(Number);
-    return { key, surah: s, ayah: a, text: uthmani[key] ?? "", meta: meta[key] };
+    return { key, surah: s, ayah: a, text: text[key] ?? "", meta: meta[key] };
   });
+}
+
+function parseScript(raw: string | undefined): ScriptName | null {
+  if (!raw) return "uthmani";
+  return (VALID_SCRIPTS as readonly string[]).includes(raw) ? (raw as ScriptName) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,9 +42,11 @@ collection.get("/page/:n", async (c) => {
   if (!Number.isInteger(n) || n < 1 || n > 604) {
     return c.json({ status: 400, type: "invalid_param", title: "Page must be 1–604" }, 400);
   }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
   const keys = await versesByField("page", n);
   if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses on page ${n}` }, 404);
-  return c.json({ data: await buildVerseList(keys), meta: { page: n, total: keys.length } });
+  return c.json({ data: await buildVerseList(keys, script), meta: { page: n, total: keys.length } });
 });
 
 // ---------------------------------------------------------------------------
@@ -50,9 +57,11 @@ collection.get("/juz/:n", async (c) => {
   if (!Number.isInteger(n) || n < 1 || n > 30) {
     return c.json({ status: 400, type: "invalid_param", title: "Juz must be 1–30" }, 400);
   }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
   const keys = await versesByField("juz", n);
   if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses in juz ${n}` }, 404);
-  return c.json({ data: await buildVerseList(keys), meta: { juz: n, total: keys.length } });
+  return c.json({ data: await buildVerseList(keys, script), meta: { juz: n, total: keys.length } });
 });
 
 // ---------------------------------------------------------------------------
@@ -63,9 +72,11 @@ collection.get("/hizb/:n", async (c) => {
   if (!Number.isInteger(n) || n < 1 || n > 60) {
     return c.json({ status: 400, type: "invalid_param", title: "Hizb must be 1–60" }, 400);
   }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
   const keys = await versesByField("hizb", n);
   if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses in hizb ${n}` }, 404);
-  return c.json({ data: await buildVerseList(keys), meta: { hizb: n, total: keys.length } });
+  return c.json({ data: await buildVerseList(keys, script), meta: { hizb: n, total: keys.length } });
 });
 
 // ---------------------------------------------------------------------------
@@ -76,9 +87,41 @@ collection.get("/ruku/:n", async (c) => {
   if (!Number.isInteger(n) || n < 1) {
     return c.json({ status: 400, type: "invalid_param", title: "Invalid ruku number" }, 400);
   }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
   const keys = await versesByField("ruku", n);
   if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses in ruku ${n}` }, 404);
-  return c.json({ data: await buildVerseList(keys), meta: { ruku: n, total: keys.length } });
+  return c.json({ data: await buildVerseList(keys, script), meta: { ruku: n, total: keys.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/manzil/:n  (1–7)
+// ---------------------------------------------------------------------------
+collection.get("/manzil/:n", async (c) => {
+  const n = Number(c.req.param("n"));
+  if (!Number.isInteger(n) || n < 1 || n > 7) {
+    return c.json({ status: 400, type: "invalid_param", title: "Manzil must be 1–7" }, 400);
+  }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
+  const keys = await versesByField("manzil", n);
+  if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses in manzil ${n}` }, 404);
+  return c.json({ data: await buildVerseList(keys, script), meta: { manzil: n, total: keys.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/rub-el-hizb/:n  (1–240)
+// ---------------------------------------------------------------------------
+collection.get("/rub-el-hizb/:n", async (c) => {
+  const n = Number(c.req.param("n"));
+  if (!Number.isInteger(n) || n < 1 || n > 240) {
+    return c.json({ status: 400, type: "invalid_param", title: "Rub el Hizb must be 1–240" }, 400);
+  }
+  const script = parseScript(c.req.query("script"));
+  if (!script) return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
+  const keys = await versesByField("rub_el_hizb", n);
+  if (!keys.length) return c.json({ status: 404, type: "not_found", title: `No verses in rub el hizb ${n}` }, 404);
+  return c.json({ data: await buildVerseList(keys, script), meta: { rub_el_hizb: n, total: keys.length } });
 });
 
 export { collection };

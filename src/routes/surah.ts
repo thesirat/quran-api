@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadUthmani, loadTafsirChapter, loadTafsirCatalog } from "../data/loader.js";
+import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog } from "../data/loader.js";
 import type { SurahMeta } from "../data/types.js";
 
 const surah = new Hono();
@@ -125,14 +125,21 @@ const SURAH_NAMES: Record<number, { arabic: string; transliteration: string; eng
 
 // ---------------------------------------------------------------------------
 // GET /v1/surahs
+// Optional query: ?revelation_place=mecca|medina
 // ---------------------------------------------------------------------------
 surah.get("/", async (c) => {
+  const rpParam = c.req.query("revelation_place")?.toLowerCase();
+  if (rpParam && rpParam !== "mecca" && rpParam !== "medina") {
+    return c.json({ status: 400, type: "invalid_param", title: "revelation_place must be 'mecca' or 'medina'" }, 400);
+  }
+
   const verseMeta = await loadVerseMeta();
   const result: SurahMeta[] = [];
 
   for (let s = 1; s <= 114; s++) {
     const info = SURAH_NAMES[s];
-    // Count verses from meta
+    if (rpParam && info?.type !== rpParam) continue;
+
     let count = 0;
     let firstPage: number | undefined;
     let lastPage: number | undefined;
@@ -154,7 +161,7 @@ surah.get("/", async (c) => {
     });
   }
 
-  return c.json({ data: result });
+  return c.json({ data: result, meta: { total: result.length } });
 });
 
 // ---------------------------------------------------------------------------
@@ -203,7 +210,13 @@ surah.get("/:n/verses", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 286), 286);
   const offset = Number(c.req.query("offset") ?? 0);
 
-  const [verseMeta, uthmani] = await Promise.all([loadVerseMeta(), loadUthmani()]);
+  const scriptParam = c.req.query("script") ?? "uthmani";
+  if (!(VALID_SCRIPTS as readonly string[]).includes(scriptParam)) {
+    return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
+  }
+  const script = scriptParam as ScriptName;
+
+  const [verseMeta, scriptText] = await Promise.all([loadVerseMeta(), loadScript(script)]);
 
   const all: string[] = [];
   for (let a = 1; a <= 300; a++) {
@@ -214,7 +227,7 @@ surah.get("/:n/verses", async (c) => {
   const page = all.slice(offset, offset + limit);
   const data = page.map((key) => {
     const [s, a] = key.split(":").map(Number);
-    return { key, surah: s, ayah: a, text: uthmani[key] ?? "", meta: verseMeta[key] };
+    return { key, surah: s, ayah: a, text: scriptText[key] ?? "", meta: verseMeta[key] };
   });
 
   return c.json({ data, meta: { total: all.length, limit, offset } });

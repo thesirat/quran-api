@@ -398,6 +398,21 @@ def sync_word_translations() -> None:
     with ThreadPoolExecutor(max_workers=min(10, len(wt_list) or 1)) as pool:
         list(pool.map(_fetch_word_translation, wt_list))
 
+    # Write catalog index so the API can discover available languages
+    index = []
+    for wt in wt_list:
+        lang = wt.get("language_name", str(wt.get("id", "")))
+        direction = wt.get("direction") or ("rtl" if wt.get("language_name", "").lower() in ("arabic", "urdu", "persian", "farsi") else "ltr")
+        index.append({
+            "lang": lang,
+            "id": wt.get("id"),
+            "name": wt.get("name") or wt.get("translated_name", {}).get("name") or lang,
+            "direction": direction,
+        })
+    if index:
+        write_json("data/words/translations/index.json", index)
+        print(f"  ✓ data/words/translations/index.json  ({len(index)} languages)")
+
 
 # ---------------------------------------------------------------------------
 # Morphology / Grammar
@@ -596,6 +611,10 @@ def main() -> None:
     parser.add_argument("--multilang-tafsirs", action="store_true")
     parser.add_argument("--tafsir-ids", metavar="ID,...")
     parser.add_argument("--workers", type=int, default=20, metavar="N")
+    parser.add_argument("--verse-meta", action="store_true",
+                        help="Sync only verse metadata → data/verses/meta.json")
+    parser.add_argument("--quran-scripts", action="store_true",
+                        help="Sync only Quran text scripts → data/quran/*.json")
     args = parser.parse_args()
 
     tafsir_ids: list[int] | None = None
@@ -607,7 +626,11 @@ def main() -> None:
     tafsirs_only = args.tafsirs_only or args.multilang_tafsirs or bool(args.tafsir_ids)
 
     t0 = time.time()
-    if tafsirs_only:
+    if args.verse_meta:
+        sync_verse_meta()
+    elif args.quran_scripts:
+        sync_quran_scripts()
+    elif tafsirs_only:
         sync_tafsirs(ids=tafsir_ids, workers=args.workers)
     else:
         sync_quran_scripts()

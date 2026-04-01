@@ -4,15 +4,21 @@ import {
   loadTafsirCatalog,
   loadTafsirChapter,
   loadRecitations,
+  loadWordTranslationCatalog,
 } from "../data/loader.js";
 
 const catalog = new Hono();
 
 // ---------------------------------------------------------------------------
 // GET /v1/translations
+// Optional query: ?language=english  (case-insensitive substring match)
 // ---------------------------------------------------------------------------
 catalog.get("/translations", async (c) => {
-  const data = await loadTranslationCatalog();
+  const all = await loadTranslationCatalog();
+  const langFilter = c.req.query("language")?.toLowerCase();
+  const data = langFilter
+    ? all.filter((t) => t.language?.toLowerCase().includes(langFilter))
+    : all;
   return c.json({ data, meta: { total: data.length } });
 });
 
@@ -68,9 +74,26 @@ catalog.get("/tafsirs/:id/surahs", async (c) => {
 
 // ---------------------------------------------------------------------------
 // GET /v1/recitations
+// Optional query: ?segmented=true  → only return recitations with timestamps
 // ---------------------------------------------------------------------------
 catalog.get("/recitations", async (c) => {
-  const data = await loadRecitations();
+  const all = await loadRecitations();
+  const segmentedOnly = c.req.query("segmented") === "true";
+  const data = segmentedOnly ? all.filter((r) => (r.segments_count ?? 0) > 0) : all;
+  return c.json({ data, meta: { total: data.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/word-translations  — catalog of available word-by-word translation langs
+// ---------------------------------------------------------------------------
+catalog.get("/word-translations", async (c) => {
+  const data = await loadWordTranslationCatalog();
+  if (!data) {
+    return c.json(
+      { status: 503, type: "data_unavailable", title: "Word translation catalog not available", detail: "Run scripts/sync_qul.py to generate it" },
+      503
+    );
+  }
   return c.json({ data, meta: { total: data.length } });
 });
 
