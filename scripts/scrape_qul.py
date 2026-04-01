@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
+from tqdm.asyncio import tqdm as atqdm  # noqa: E402
 from utils import write_json  # noqa: E402
 
 QUL_BASE = "https://qul.tarteel.ai"
@@ -63,6 +64,24 @@ def _slug_to_name(slug: str) -> str:
     return MAP.get(slug, slug.replace("quran-", ""))
 
 
+async def _fill_login_form(page: Any, email: str, password: str) -> bool:
+    """Fill and submit a login form if present on the current page. Returns True on success."""
+    email_sel = 'input[type="email"], input[name="email"], input[name="username"]'
+    try:
+        await page.wait_for_selector(email_sel, timeout=5_000)
+    except Exception:
+        return False
+    await page.fill(email_sel, email)
+    await page.fill('input[type="password"]', password)
+    await page.keyboard.press("Enter")
+    try:
+        await page.wait_for_load_state("networkidle", timeout=15_000)
+    except Exception:
+        pass
+    # Success if we're no longer on a login/auth page
+    return not any(p in page.url for p in ("/login", "/signin", "/auth"))
+
+
 async def _login(page: Any) -> bool:
     """Attempt to log in if credentials are present.  Returns True on success."""
     email = os.environ.get("QUL_EMAIL", "").strip()
@@ -72,20 +91,46 @@ async def _login(page: Any) -> bool:
         return False
 
     print("  → Logging in …")
+
+    async def _login_and_return(label: str) -> bool:
+        """Fill login form on current page; on success navigate back to QUL_BASE."""
+        if await _fill_login_form(page, email, password):
+            print(f"  ✓ Logged in via {label}.")
+            await page.goto(QUL_BASE, wait_until="domcontentloaded", timeout=15_000)
+            return True
+        return False
+
+    # 1. Try clicking CMS / Login button in the nav to reveal the form
+    cms_sel = 'a[href*="cms"], a[href*="admin"], button:has-text("CMS"), a:has-text("CMS"), a:has-text("Login"), button:has-text("Login")'
+    if await page.locator(cms_sel).count() > 0:
+        try:
+            await page.locator(cms_sel).first.click()
+            await page.wait_for_load_state("domcontentloaded", timeout=10_000)
+            if await _login_and_return("nav button"):
+                return True
+        except Exception:
+            pass
+
+    # 2. Try direct login paths
     for login_path in ("/login", "/accounts/login", "/auth/login", "/signin"):
         try:
             await page.goto(f"{QUL_BASE}{login_path}", wait_until="domcontentloaded", timeout=20_000)
-            email_sel = 'input[type="email"], input[name="email"], input[name="username"]'
-            if await page.locator(email_sel).count() > 0:
-                await page.fill(email_sel, email)
-                await page.fill('input[type="password"]', password)
-                await page.keyboard.press("Enter")
-                await page.wait_for_load_state("networkidle", timeout=15_000)
-                if page.url != f"{QUL_BASE}{login_path}":
-                    print("  ✓ Logged in.")
-                    return True
+            if await _login_and_return(login_path):
+                return True
         except Exception:
             continue
+
+    # 3. Try clicking a download button to trigger auth redirect
+    try:
+        await page.goto(f"{QUL_BASE}/resources/translation/", wait_until="domcontentloaded", timeout=20_000)
+        first_dl = page.locator("a, button").filter(has_text="json").first
+        if await first_dl.count() > 0:
+            await first_dl.click()
+            await page.wait_for_load_state("domcontentloaded", timeout=10_000)
+            if await _login_and_return("download trigger"):
+                return True
+    except Exception:
+        pass
 
     print("  ⚠ Could not find login form — continuing unauthenticated.")
     return False
@@ -179,7 +224,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore, dl_sem: asy
                 finally:
                     await _close_ctx(sub_ctx, sem)
 
-        await asyncio.gather(*[_dl_one(i) for i in range(count)])
+        await atqdm.gather(*[_dl_one(i) for i in range(count)], desc="  [quran-scripts]")
     finally:
         await _close_ctx(ctx, sem)
 
@@ -246,7 +291,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyn
             finally:
                 await _close_ctx(sub_ctx, sem)
 
-    await asyncio.gather(*[_dl_one(i) for i in range(btns_count)])
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [translations]")
     print(f"  ✓ {btns_count} translation file(s) processed.")
 
 
@@ -308,7 +353,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.S
             finally:
                 await _close_ctx(sub_ctx, sem)
 
-    await asyncio.gather(*[_dl_one(i) for i in range(btns_count)])
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [tafsirs]")
     print("  ✓ Tafsir files written under data/tafsirs/")
 
 
@@ -354,7 +399,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore, dl_sem:
             finally:
                 await _close_ctx(sub_ctx, sem)
 
-    await asyncio.gather(*[_dl_one(i) for i in range(btns_count)])
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [word-translations]")
 
 
 async def scrape_recitations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
@@ -417,7 +462,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore, dl_sem: async
             finally:
                 await _close_ctx(sub_ctx, sem)
 
-    await asyncio.gather(*[_dl_one(i) for i in range(btns_count)])
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [recitations]")
 
 
 async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
