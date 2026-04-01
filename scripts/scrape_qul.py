@@ -13,8 +13,9 @@ Outputs: same paths as sync_qul.py so the two scripts are interchangeable.
 Category URLs follow the hub at https://qul.tarteel.ai/resources (e.g. ayah-topics,
 mushaf-layout, surah-info).  Word-by-word Arabic text is taken from a Quran script
 WbW resource; override with QUL_WORDS_RESOURCE_URL (full URL, site path, or numeric id).
-Fonts: each /resources/font/<id> detail page is opened and every Download control (plus
-direct woff/woff2/ttf/otf/json/.json.bz2 links) is saved under data/fonts/<id>/.
+Fonts: files are fetched with GET /resources/font/<id>/download.<ext> using the browser
+session (set QUL_EMAIL / QUL_PASSWORD — unauthenticated responses are 401).  Optional
+static-cdn <a href> links are also saved under data/fonts/<id>/.
 
 Performance: each resource type gets its own browser context and runs
 concurrently via asyncio.gather(); within each scraper, download URLs are
@@ -31,6 +32,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from collections import Counter
 import os
 import random
 import re
@@ -38,6 +40,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import unquote
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -45,6 +48,29 @@ from tqdm.asyncio import tqdm as atqdm  # noqa: E402
 from utils import safe_path, write_json  # noqa: E402
 
 QUL_BASE = "https://qul.tarteel.ai"
+
+
+def _print_write_batch_summary(tag: str, attempted: int, statuses: list[str]) -> None:
+    """Print how parallel download tasks finished (each task reports one status string)."""
+    if attempted == 0:
+        print(f"  [{tag}] summary: attempted=0 (nothing to download)")
+        return
+    c = Counter(statuses)
+    written = c.get("written", 0)
+    pieces = [f"written={written}/{attempted}"]
+    for key, label in (
+        ("no_btn", "no_btn"),
+        ("no_data", "download_failed"),
+        ("empty_out", "empty_after_parse"),
+        ("empty_items", "empty_items"),
+        ("not_verse_meta", "not_verse_meta"),
+        ("wrong_shape", "wrong_shape"),
+        ("error", "errors"),
+    ):
+        n = c.get(key, 0)
+        if n:
+            pieces.append(f"{label}={n}")
+    print(f"  [{tag}] summary: " + ", ".join(pieces) + (" (see ⚠ lines for error detail)" if c.get("error") else ""))
 
 # Number of browser contexts in the pool.
 # Each context is ~150MB; 5 contexts = ~750MB, well within GitHub Actions 7GB.
@@ -248,42 +274,86 @@ async def _download_file(page: Any, btn: Any, fmt: str) -> Any:
 
 
 # Font detail pages use many labels: Download woff / woff2 / ttf / otf / json / Ligatures (often .json.bz2), etc.
-_FONT_DOWNLOAD_CONTROL = re.compile(r"^\s*download\b", re.I | re.M)
+# The visible <a href="#_"> buttons open a login modal when unauthenticated — they do not trigger a browser
+# download.  QUL serves files at GET /resources/font/<id>/download.<ext> (401/403 without session, 200 with).
+_FONT_HTTP_EXTENSIONS: tuple[str, ...] = (
+    "woff",
+    "woff2",
+    "ttf",
+    "otf",
+    "json",
+    "bz2",
+    "ligatures",
+    "zip",
+)
 
 
-async def _save_browser_download_from_click(
-    page: Any,
-    click_target: Any,
-    out_dir: Path,
-    *,
-    timeout: int = 180_000,
-) -> str | None:
-    """
-    Click a control, wait for Playwright download, save under out_dir using suggested_filename.
-    Returns saved basename, or None on failure.
-    """
-    try:
-        async with page.expect_download(timeout=timeout) as dl_info:
-            await click_target.click()
-        dl = await dl_info.value
-        suggested = (dl.suggested_filename or "download.bin").strip() or "download.bin"
-        name = Path(suggested).name
-        if not name or name in (".", ".."):
-            name = "download.bin"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        dest = out_dir / name
-        if dest.exists():
-            stem, suf = dest.stem, dest.suffix
-            for k in range(2, 10_000):
-                cand = out_dir / f"{stem}_{k}{suf}"
-                if not cand.exists():
-                    dest = cand
-                    name = dest.name
-                    break
-        await dl.save_as(str(dest))
-        return name
-    except Exception:
+def _filename_from_content_disposition(cd: str) -> str | None:
+    if not cd:
         return None
+    m = re.search(r"filename\*=UTF-8''([^;]+)", cd, re.I)
+    if m:
+        return Path(unquote(m.group(1).strip().strip('"'))).name
+    m = re.search(r'filename="([^"]+)"', cd, re.I)
+    if m:
+        return Path(m.group(1)).name
+    m = re.search(r"filename=([^;]+)", cd, re.I)
+    if m:
+        return Path(m.group(1).strip().strip('"')).name
+    return None
+
+
+async def _download_fonts_via_authenticated_http(page: Any, font_id: str, out_dir: Path) -> tuple[list[str], bool]:
+    """
+    Fetch font assets using the browser context's cookie jar (same session as Playwright).
+    Returns (saved basenames, saw_401) where saw_401 hints missing QUL credentials.
+    """
+    req = page.context.request
+    saved: list[str] = []
+    seen: set[str] = set()
+    saw_401 = False
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for ext in _FONT_HTTP_EXTENSIONS:
+        url = f"{QUL_BASE}/resources/font/{font_id}/download.{ext}"
+        try:
+            resp = await req.get(url, timeout=120_000)
+        except Exception:
+            continue
+        if resp.status == 401 or resp.status == 403:
+            saw_401 = True
+            continue
+        if resp.status != 200:
+            continue
+        ct = (resp.headers.get("content-type") or "").lower()
+        if "text/html" in ct:
+            continue
+        body = await resp.body()
+        if not body or len(body) < 16:
+            continue
+        head = body[:400].lower()
+        if head.strip()[:1] == b"<" and (b"<!doctype" in head or b"<html" in head):
+            continue
+
+        cd = resp.headers.get("content-disposition") or ""
+        fname = _filename_from_content_disposition(cd) or f"download.{ext}"
+        fname = Path(fname).name
+        if not fname or fname in (".", ".."):
+            fname = f"download.{ext}"
+        if fname in seen:
+            stem, suf = Path(fname).stem, Path(fname).suffix
+            for k in range(2, 10_000):
+                alt = f"{stem}_{k}{suf}"
+                if alt not in seen:
+                    fname = alt
+                    break
+        seen.add(fname)
+        dest = out_dir / fname
+        dest.write_bytes(body)
+        saved.append(fname)
+        await asyncio.sleep(random.uniform(0.06, 0.18))
+
+    return saved, saw_401
 
 
 async def _font_detail_urls_from_listing(page: Any) -> list[str]:
@@ -322,10 +392,10 @@ def _font_id_from_detail_url(url: str) -> str:
     return m.group(1) if m else "unknown"
 
 
-async def _download_all_font_assets_on_detail_page(page: Any, out_dir: Path) -> list[str]:
+async def _download_all_font_assets_on_detail_page(page: Any, out_dir: Path, font_id: str) -> tuple[list[str], bool]:
     """
-    Click every control whose text looks like 'Download …' (woff, woff2, ttf, otf, json, Ligatures, …).
-    If none match, fall back to direct file links common on QUL font pages.
+    Prefer authenticated GET /resources/font/<id>/download.<ext> (reliable with QUL session cookies).
+    Then direct static-cdn links in <a href>.  Clicks on href=\"#_\" are skipped (modal, not a download).
     """
     saved: list[str] = []
     seen_names: set[str] = set()
@@ -335,32 +405,56 @@ async def _download_all_font_assets_on_detail_page(page: Any, out_dir: Path) -> 
             seen_names.add(name)
             saved.append(name)
 
-    primary = page.locator("a, button").filter(has_text=_FONT_DOWNLOAD_CONTROL)
-    n = await primary.count()
-    for i in range(n):
-        btn = page.locator("a, button").filter(has_text=_FONT_DOWNLOAD_CONTROL).nth(i)
-        fname = await _save_browser_download_from_click(page, btn, out_dir)
-        _record(fname)
-        await asyncio.sleep(random.uniform(0.12, 0.35))
+    http_files, saw_401 = await _download_fonts_via_authenticated_http(page, font_id, out_dir)
+    for n in http_files:
+        _record(n)
 
-    # Also pick up direct CDN/file links (e.g. if a format is link-only), skip likely duplicates.
+    # Public CDN anchors (no auth; rare — often only in docs, not as <a href>)
     href_pat = re.compile(r"\.(woff2?|ttf|otf|json(\.bz2)?)(\?|#|$)", re.I)
     anchors = page.locator("a[href]")
     ac = await anchors.count()
+    req = page.context.request
     for i in range(ac):
         a = anchors.nth(i)
         href = await a.get_attribute("href")
-        if not href or not href_pat.search(href):
+        if not href or href.startswith("#") or "sign_in" in href:
+            continue
+        if not href_pat.search(href):
+            continue
+        if not href.startswith("http"):
             continue
         path_part = href.split("?", 1)[0].split("#", 1)[0]
         hint = Path(path_part).name
         if hint and hint in seen_names:
             continue
-        fname = await _save_browser_download_from_click(page, a, out_dir)
+        try:
+            resp = await req.get(href, timeout=120_000)
+        except Exception:
+            continue
+        if resp.status != 200:
+            continue
+        ct = (resp.headers.get("content-type") or "").lower()
+        if "text/html" in ct:
+            continue
+        body = await resp.body()
+        if not body:
+            continue
+        cd = resp.headers.get("content-disposition") or ""
+        fname = _filename_from_content_disposition(cd) or hint or "cdn-font.bin"
+        fname = Path(fname).name
+        if fname in seen_names:
+            stem, suf = Path(fname).stem, Path(fname).suffix
+            for k in range(2, 10_000):
+                alt = f"{stem}_{k}{suf}"
+                if alt not in seen_names:
+                    fname = alt
+                    break
+        dest = out_dir / fname
+        dest.write_bytes(body)
         _record(fname)
-        await asyncio.sleep(random.uniform(0.12, 0.35))
+        await asyncio.sleep(random.uniform(0.06, 0.18))
 
-    return saved
+    return saved, saw_401
 
 
 def _btn_count(json_count: int, sqlite_count: int) -> int:
@@ -545,7 +639,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
-    async def _dl_one(slot: int) -> None:
+    async def _dl_one(slot: int) -> str:
         i = row_indices[slot]
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
@@ -554,7 +648,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
             row = rows.nth(i)
             btn = await _row_download_button(row)
             if not btn:
-                return
+                return "no_btn"
             fmt = "json" if await row.locator("a, button").filter(has_text=re.compile(r"\bjson\b", re.I)).count() > 0 else "sqlite"
             slug = await btn.evaluate(
                 """el => {
@@ -564,21 +658,27 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             out = (
                 {f"{v['chapter_id']}:{v['verse_number']}": v.get("text", "") for v in data}
                 if isinstance(data, list)
                 else data.get("data", data)
             )
+            if not out:
+                return "empty_out"
             name = _slug_to_name(slug) if slug else f"script-r{i}"
             write_json(f"data/quran/{name}.json", out)
             print(f"  ✓ data/quran/{name}.json  ({len(out):,} verses)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ script row #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(slot) for slot in range(len(row_indices))], desc="  [quran-scripts]")
+    n_scripts = len(row_indices)
+    st = await atqdm.gather(*[_dl_one(slot) for slot in range(n_scripts)], desc="  [quran-scripts]")
+    _print_write_batch_summary("quran-scripts", n_scripts, list(st))
 
 
 async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -619,7 +719,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
-    async def _dl_one(slot: int) -> None:
+    async def _dl_one(slot: int) -> str:
         ri = ayah_row_i[slot]
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
@@ -628,7 +728,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
             row = rows.nth(ri)
             btn = await _row_download_button(row)
             if not btn:
-                return
+                return "no_btn"
             fmt = (
                 "json"
                 if await row.locator("a, button").filter(has_text=re.compile(r"\bjson\b", re.I)).count() > 0
@@ -642,7 +742,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
             out: dict = {}
             for item in items:
@@ -650,15 +750,18 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
                 out[key] = {"text": item.get("text", "")}
                 if item.get("footnotes"):
                     out[key]["footnotes"] = item["footnotes"]
-            if out:
-                write_json(f"data/translations/{tid}.json", out)
+            if not out:
+                return "empty_out"
+            write_json(f"data/translations/{tid}.json", out)
+            return "written"
         except Exception as exc:
             print(f"  ⚠ translation row #{ri}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(slot) for slot in range(btns_count)], desc="  [translations]")
-    print(f"  ✓ {btns_count} translation file(s) processed.")
+    st = await atqdm.gather(*[_dl_one(slot) for slot in range(btns_count)], desc="  [translations]")
+    _print_write_batch_summary("translations", btns_count, list(st))
 
 
 async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -697,7 +800,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/tafsir/")
@@ -710,23 +813,28 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
+            if not ayahs:
+                return "empty_items"
             by_surah: dict[int, list] = {}
             for ayah in ayahs:
                 surah = ayah.get("chapter_id") or ayah.get("surah_number") or 1
                 by_surah.setdefault(surah, []).append(ayah)
+            if not by_surah:
+                return "empty_out"
             for surah, surah_ayahs in by_surah.items():
                 write_json(f"data/tafsirs/{tid}/{surah}.json", {"ayahs": surah_ayahs})
-            if by_surah:
-                print(f"  ✓ tafsir {tid}: {len(by_surah)} surah file(s)")
+            print(f"  ✓ tafsir {tid}: {len(by_surah)} surah file(s)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ tafsir btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [tafsirs]")
-    print("  ✓ Tafsir files written under data/tafsirs/")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [tafsirs]")
+    _print_write_batch_summary("tafsirs", btns_count, list(st))
 
 
 async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -807,6 +915,14 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
     )
     wt_index = [r for r in wt_results if r]
     wt_index.sort(key=lambda x: (x.get("id", 0), x.get("lang", "")))
+    n_ok = len(wt_index)
+    if btns_count == 0:
+        print("  [word-translations] summary: attempted=0 (no word-by-word rows)")
+    else:
+        print(
+            f"  [word-translations] summary: json_files_written={n_ok}/{btns_count}, "
+            f"failed={btns_count - n_ok}"
+        )
     if wt_index:
         write_json("data/words/translations/index.json", wt_index)
         print(f"  ✓ data/words/translations/index.json  ({len(wt_index)} entries)")
@@ -844,7 +960,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/recitation/")
@@ -868,22 +984,26 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
             segments: dict = {
                 (af.get("verse_key") or f"{af.get('chapter_id')}:{af.get('verse_number')}"): af["segments"]
                 for af in audio_files
                 if af.get("segments")
             }
-            if segments:
-                write_json(f"data/audio/segments/{rid}.json", segments)
-                print(f"  ✓ data/audio/segments/{rid}.json  ({len(segments):,} verses)")
+            if not segments:
+                return "empty_out"
+            write_json(f"data/audio/segments/{rid}.json", segments)
+            print(f"  ✓ data/audio/segments/{rid}.json  ({len(segments):,} verses)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ recitation btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [recitations]")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [recitations]")
+    _print_write_batch_summary("recitations", btns_count, list(st))
 
 
 async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -939,20 +1059,20 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
     if not btns_count:
         return
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/quran-metadata/")
             btn, fmt = await _find_dl_btn_nth(sub_page, i)
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             items = data if isinstance(data, list) else data.get("verses", data.get("data", data.get("results", [])))
             if not isinstance(items, list) or not items:
-                return
+                return "empty_items"
             first = items[0]
             if not any(k in first for k in ("page_number", "juz_number", "juz", "hizb_number")):
-                return  # Not verse meta; skip this file
+                return "not_verse_meta"
             meta: dict = {}
             for v in items:
                 key = v.get("verse_key") or f"{v.get('chapter_id')}:{v.get('verse_number')}"
@@ -968,15 +1088,19 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
                     "words_count": v.get("words_count"),
                     "sajdah": v.get("sajdah_type") if (v.get("sajdah_number") or v.get("sajdah")) else None,
                 }
-            if meta:
-                write_json("data/verses/meta.json", meta)
-                print(f"  ✓ data/verses/meta.json  ({len(meta):,} verses)")
+            if not meta:
+                return "empty_out"
+            write_json("data/verses/meta.json", meta)
+            print(f"  ✓ data/verses/meta.json  ({len(meta):,} verses)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ quran-metadata btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [quran-metadata]")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [quran-metadata]")
+    _print_write_batch_summary("quran-metadata", btns_count, list(st))
 
 
 # ---------------------------------------------------------------------------
@@ -1052,17 +1176,17 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
     if not btns_count:
         return
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/morphology/")
             btn, fmt = await _find_dl_btn_nth(sub_page, i)
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
             if not isinstance(items, list) or not items:
-                return
+                return "empty_items"
             first = items[0]
             if "mark" in first or "pause_mark" in first:
                 marks: dict = {
@@ -1070,9 +1194,12 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
                     for pm in items
                     if pm.get("word_key") or pm.get("location")
                 }
+                if not marks:
+                    return "empty_out"
                 write_json("data/morphology/pause-marks.json", marks)
                 print(f"  ✓ data/morphology/pause-marks.json  ({len(marks):,} marks)")
-            elif any(k in first for k in ("pos", "root", "lemma", "stem")):
+                return "written"
+            if any(k in first for k in ("pos", "root", "lemma", "stem")):
                 out: dict = {}
                 for item in items:
                     loc = item.get("location") or item.get("word_key")
@@ -1084,14 +1211,20 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
                         "lemma": item.get("lemma"),
                         "stem": item.get("stem"),
                     }
+                if not out:
+                    return "empty_out"
                 write_json("data/morphology/qul.json", out)
                 print(f"  ✓ data/morphology/qul.json  ({len(out):,} records)")
+                return "written"
+            return "wrong_shape"
         except Exception as exc:
             print(f"  ⚠ morphology btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [morphology]")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [morphology]")
+    _print_write_batch_summary("morphology", btns_count, list(st))
 
 
 # ---------------------------------------------------------------------------
@@ -1206,7 +1339,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
 
     index: list = []
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/transliteration/")
@@ -1224,7 +1357,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             items = data if isinstance(data, list) else data.get("transliterations", data.get("data", data.get("results", [])))
             lang = (meta_info.get("lang") or meta_info.get("name") or f"tl-{i}").lower().replace(" ", "_")
             type_hint = meta_info.get("type", "")
@@ -1233,23 +1366,27 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
                 key = item.get("verse_key") or item.get("location") or item.get("word_key")
                 if key:
                     out[key] = item.get("text", "")
-            if out:
-                is_wbw = "word" in type_hint or "wbw" in type_hint
-                fname = f"wbw_{lang}" if is_wbw else lang
-                write_json(f"data/transliteration/{fname}.json", out)
-                index.append({
-                    "lang": lang,
-                    "id": meta_info.get("id"),
-                    "name": meta_info.get("name"),
-                    "type": "word" if is_wbw else "ayah",
-                })
-                print(f"  ✓ data/transliteration/{fname}.json  ({len(out):,} entries)")
+            if not out:
+                return "empty_out"
+            is_wbw = "word" in type_hint or "wbw" in type_hint
+            fname = f"wbw_{lang}" if is_wbw else lang
+            write_json(f"data/transliteration/{fname}.json", out)
+            index.append({
+                "lang": lang,
+                "id": meta_info.get("id"),
+                "name": meta_info.get("name"),
+                "type": "word" if is_wbw else "ayah",
+            })
+            print(f"  ✓ data/transliteration/{fname}.json  ({len(out):,} entries)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ transliteration btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [transliteration]")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [transliteration]")
+    _print_write_batch_summary("transliteration", btns_count, list(st))
     if index:
         write_json("data/transliteration/index.json", index)
         print(f"  ✓ data/transliteration/index.json  ({len(index)} entries)")
@@ -1281,7 +1418,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
 
     index: list = []
 
-    async def _dl_one(i: int) -> None:
+    async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/surah-info/")
@@ -1297,7 +1434,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
             )
             data = await _download_file(sub_page, btn, fmt)
             if not data:
-                return
+                return "no_data"
             items = data if isinstance(data, list) else data.get(
                 "surah_infos",
                 data.get("chapter_infos", data.get("data", data.get("results", []))),
@@ -1314,16 +1451,20 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
                     "description": item.get("info") or item.get("description") or item.get("text"),
                     "language": lang,
                 }
-            if out:
-                write_json(f"data/surah-info/{lang}.json", out)
-                index.append({"lang": lang, "name": meta_info.get("name")})
-                print(f"  ✓ data/surah-info/{lang}.json  ({len(out)} surahs)")
+            if not out:
+                return "empty_out"
+            write_json(f"data/surah-info/{lang}.json", out)
+            index.append({"lang": lang, "name": meta_info.get("name")})
+            print(f"  ✓ data/surah-info/{lang}.json  ({len(out)} surahs)")
+            return "written"
         except Exception as exc:
             print(f"  ⚠ surah-info btn #{i}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [surah-info]")
+    st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [surah-info]")
+    _print_write_batch_summary("surah-info", btns_count, list(st))
     if index:
         write_json("data/surah-info/index.json", index)
         print(f"  ✓ data/surah-info/index.json  ({len(index)} languages)")
@@ -1427,10 +1568,12 @@ async def scrape_fonts(browser: Any, sem: asyncio.Semaphore) -> None:
         await _goto(page, f"{QUL_BASE}/resources/font/")
         detail_urls = await _font_detail_urls_from_listing(page)
         print(f"  [fonts] Found {len(detail_urls)} font detail page(s).")
+        if not os.environ.get("QUL_EMAIL", "").strip() or not os.environ.get("QUL_PASSWORD", "").strip():
+            print("  ⓘ  Fonts use authenticated /download.<ext> URLs — without QUL_EMAIL/QUL_PASSWORD expect 401.")
     finally:
         await _close_ctx(ctx, sem)
 
-    async def _dl_one(slot: int) -> None:
+    async def _dl_one(slot: int) -> str:
         url = detail_urls[slot]
         rid = _font_id_from_detail_url(url)
         sub_ctx, sub_page = await _new_page(browser, sem)
@@ -1438,21 +1581,28 @@ async def scrape_fonts(browser: Any, sem: asyncio.Semaphore) -> None:
             out_dir = safe_path(f"data/fonts/{rid}")
             out_dir.mkdir(parents=True, exist_ok=True)
             await _goto(sub_page, url)
-            files = await _download_all_font_assets_on_detail_page(sub_page, out_dir)
+            files, saw_401 = await _download_all_font_assets_on_detail_page(sub_page, out_dir, rid)
             if files:
                 write_json(
                     f"data/fonts/{rid}/manifest.json",
                     {"detail_url": url, "files": sorted(set(files))},
                 )
                 print(f"  ✓ data/fonts/{rid}/  ({len(files)} file(s))")
-            else:
-                print(f"  ⚠ [fonts] No downloads for id={rid}")
+                return "written"
+            msg = f"  ⚠ [fonts] No downloads for id={rid}"
+            if saw_401:
+                msg += " (HTTP 401 — set QUL_EMAIL and QUL_PASSWORD for font downloads)"
+            print(msg)
+            return "no_data" if saw_401 else "empty_out"
         except Exception as exc:
             print(f"  ⚠ fonts {url}: {exc}")
+            return "error"
         finally:
             await _close_ctx(sub_ctx, sem)
 
-    await atqdm.gather(*[_dl_one(slot) for slot in range(len(detail_urls))], desc="  [fonts]")
+    n_fonts = len(detail_urls)
+    st = await atqdm.gather(*[_dl_one(slot) for slot in range(n_fonts)], desc="  [fonts]")
+    _print_write_batch_summary("fonts", n_fonts, list(st))
 
 
 # ---------------------------------------------------------------------------

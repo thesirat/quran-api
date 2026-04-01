@@ -4,7 +4,7 @@ import { loadStructureMeta } from "../data/loader.js";
 const structure = new Hono();
 
 // ---------------------------------------------------------------------------
-// GET /v1/structure  — full Tanzil structural metadata
+// GET /v1/structure  — juz / hizb quarter / manzil / ruku / page / sajda (from verse meta)
 // ---------------------------------------------------------------------------
 structure.get("/structure", async (c) => {
   let data;
@@ -12,7 +12,12 @@ structure.get("/structure", async (c) => {
     data = await loadStructureMeta();
   } catch {
     return c.json(
-      { status: 503, type: "data_unavailable", title: "Structure metadata not available", detail: "Run scripts/sync_tanzil.py to generate it" },
+      {
+        status: 503,
+        type: "data_unavailable",
+        title: "Structure metadata not available",
+        detail: "Requires data/verses/meta.json from QUL (scripts/scrape_qul.py — quran-metadata).",
+      },
       503
     );
   }

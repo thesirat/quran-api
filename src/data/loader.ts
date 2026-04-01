@@ -91,7 +91,6 @@ import type {
   TopicEntry,
   MutashabihatPair,
   MushafPage,
-  TanzilMeta,
   WordTranslationCatalogEntry,
   TransliterationCatalogEntry,
   SurahInfo,
@@ -100,6 +99,7 @@ import type {
   FontListItem,
   FontManifest,
 } from "./types.js";
+import { buildStructureFromVerseMeta } from "./structure-from-verses.js";
 
 export const loadVerseMeta = () =>
   loadJson<Record<string, VerseMeta>>("data/verses/meta.json");
@@ -162,8 +162,11 @@ export const loadMutashabihat = () =>
 export const loadMushafPages = () =>
   tryLoadJson<Record<string, MushafPage>>("data/mushaf/pages.json");
 
-export const loadStructureMeta = () =>
-  loadJson<TanzilMeta>("data/structure/meta.json");
+/** Structural index (Tanzil-shaped bundle) derived from QUL verse metadata. */
+export const loadStructureMeta = async () => {
+  const verseMeta = await loadVerseMeta();
+  return buildStructureFromVerseMeta(verseMeta);
+};
 
 export const loadWordTranslationCatalog = () =>
   tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");

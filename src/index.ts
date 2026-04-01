@@ -29,7 +29,7 @@ app.get("/", (c) =>
     name: "Quran API",
     version: "1.0.0",
     docs: "https://github.com/your-repo/quran-api",
-    sources: ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)", "tanzil.net"],
+    sources: ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)"],
     endpoints: {
       // Verse
       verse: "/v1/verse/:key",

@@ -17,9 +17,8 @@ All endpoints are prefixed with `/v1/`. The root `GET /` returns a machine-reada
 
 | Source | License | Data |
 |---|---|---|
-| [QUL — Tarteel AI](https://qul.tarteel.ai/resources/) | MIT | Arabic text (28 scripts), 209 translations, 16 word-by-word translations, 150+ tafsirs (30+ languages), 152 recitations + segment timestamps, Mushaf layouts, Quran fonts (woff/woff2/ttf/otf/json/ligatures per resource), 77k morphology records, pause marks, 2,512 topics, Mutashabihat (5,277 pairs), similar ayahs (4,001 pairs), ayah themes (1,049), transliteration (9 resources), surah info (9 languages) |
+| [QUL — Tarteel AI](https://qul.tarteel.ai/resources/) | MIT | Arabic text (28 scripts), 209 translations, 16 word-by-word translations, 150+ tafsirs (30+ languages), 152 recitations + segment timestamps, Mushaf layouts, Quran fonts (woff/woff2/ttf/otf/json/ligatures per resource), verse-level metadata (page, juz, hizb, rub el hizb, ruku, manzil, sajda) for `/v1/structure`, 77k morphology records, pause marks, 2,512 topics, Mutashabihat (5,277 pairs), similar ayahs (4,001 pairs), ayah themes (1,049), transliteration (9 resources), surah info (9 languages) |
 | [corpus.quran.com](https://corpus.quran.com) via [mustafa0x](https://github.com/mustafa0x/quran-morphology) | GPL | Sub-word morphological segmentation: POS tags, case, mood, voice, lemma, root per segment |
-| [Tanzil](https://tanzil.net) | Non-commercial | Structural metadata: juz, hizb, ruku, manzil, page boundaries |
 
 ---
 
@@ -107,7 +106,7 @@ Returns API metadata and a full endpoint index.
 {
   "name": "Quran API",
   "version": "1.0.0",
-  "sources": ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)", "tanzil.net"],
+  "sources": ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)"],
   "endpoints": {
     "verse": "/v1/verse/:key",
     "verse_words": "/v1/verse/:key/words",
@@ -567,7 +566,7 @@ Returns full Mushaf layout data for a page — including line/word counts, verse
 
 #### `GET /v1/structure`
 
-Returns the full Tanzil structural metadata index — juz, hizb, rub el hizb, manzil, ruku, and page boundaries for every ayah.
+Returns a **Tanzil-shaped** structural index (same key names as classic `quran-data.js`: `Sura`, `Juz`, `HizbQaurter`, `Manzil`, `Ruku`, `Page`, `Sajda`) built from QUL verse metadata (`data/verses/meta.json`). Per-ayah fields remain on each verse via `GET /v1/verse/:key`.
 
 **Response**
 ```json
@@ -576,7 +575,7 @@ Returns the full Tanzil structural metadata index — juz, hizb, rub el hizb, ma
 }
 ```
 
-Returns `503` if the structure data file has not yet been generated (run `scripts/sync_tanzil.py`).
+Returns `503` if verse metadata has not been synced yet (run `scripts/scrape_qul.py` with **quran-metadata** included, e.g. `--resources all`).
 
 ---
 
@@ -1257,6 +1256,6 @@ interface TranslationEntry {
 ## Data Sync
 
 Data is refreshed automatically every **Sunday at 06:00 UTC** via GitHub Actions (`sync.yml`).
-Each sync downloads the latest data from QUL (via Playwright scraper), corpus.quran.com, and Tanzil, commits to `main`, and triggers a Vercel redeployment — invalidating the edge cache via a new ETag.
+Each successful sync downloads the latest data from QUL (via Playwright scraper) and corpus.quran.com, commits any changes under `data/` to `main`, and triggers a Vercel redeployment — invalidating the edge cache via a new ETag.
 
-You can also trigger a manual sync from the GitHub Actions tab with an optional `sources` input (`qul-scrape`, `morphology`, `tanzil`, or `all`).
+You can trigger a manual sync from the GitHub Actions tab with an optional `sources` input (`qul-scrape`, `morphology`, or `all`). The job **only creates a commit when `git add data/` produces a diff**; if the scraper fails (missing `QUL_EMAIL` / `QUL_PASSWORD`, timeouts, or no file changes), `main` stays unchanged — check the workflow log and the **Show data tree status** step. The scheduled workflow runs **weekly** (Sunday 06:00 UTC), not on every push.

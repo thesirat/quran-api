@@ -191,7 +191,7 @@ export interface SurahMeta {
 }
 
 // ---------------------------------------------------------------------------
-// Tanzil structural metadata
+// Structural bundle returned by GET /v1/structure (Tanzil quran-data.js shape; built from QUL verse meta).
 // ---------------------------------------------------------------------------
 export interface TanzilMeta {
   suras?: TanzilSura[];
