@@ -17,7 +17,7 @@ All endpoints are prefixed with `/v1/`. The root `GET /` returns a machine-reada
 
 | Source | License | Data |
 |---|---|---|
-| [QUL — Tarteel AI](https://qul.tarteel.ai/resources/) | MIT | Arabic text (28 scripts), 209 translations, 16 word-by-word translations, 150+ tafsirs (30+ languages), 152 recitations + segment timestamps, Mushaf layouts, 77k morphology records, pause marks, 2,512 topics, Mutashabihat (5,277 pairs), similar ayahs (4,001 pairs), ayah themes (1,049), transliteration (9 resources), surah info (9 languages) |
+| [QUL — Tarteel AI](https://qul.tarteel.ai/resources/) | MIT | Arabic text (28 scripts), 209 translations, 16 word-by-word translations, 150+ tafsirs (30+ languages), 152 recitations + segment timestamps, Mushaf layouts, Quran fonts (woff/woff2/ttf/otf/json/ligatures per resource), 77k morphology records, pause marks, 2,512 topics, Mutashabihat (5,277 pairs), similar ayahs (4,001 pairs), ayah themes (1,049), transliteration (9 resources), surah info (9 languages) |
 | [corpus.quran.com](https://corpus.quran.com) via [mustafa0x](https://github.com/mustafa0x/quran-morphology) | GPL | Sub-word morphological segmentation: POS tags, case, mood, voice, lemma, root per segment |
 | [Tanzil](https://tanzil.net) | Non-commercial | Structural metadata: juz, hizb, ruku, manzil, page boundaries |
 
@@ -49,10 +49,11 @@ All successful responses use a standard envelope:
 
 | `type` | HTTP status | Meaning |
 |---|---|---|
-| `not_found` | 404 | Resource does not exist |
+| `not_found` | 404 | Resource does not exist (verse, font id, font file, etc.) |
 | `invalid_key` | 400 | Malformed verse/word key |
 | `invalid_param` | 400 | Out-of-range or invalid query parameter |
 | `unavailable` | 503 | Data file not yet synced |
+| `data_unavailable` | 503 | Optional dataset missing (e.g. catalog not generated yet) |
 | `internal_error` | 500 | Unexpected server error |
 
 ---
@@ -140,6 +141,9 @@ Returns API metadata and a full endpoint index.
     "tafsir_coverage": "/v1/tafsirs/:id/surahs",
     "recitations": "/v1/recitations",
     "word_translations": "/v1/word-translations",
+    "fonts": "/v1/fonts",
+    "font": "/v1/fonts/:id",
+    "font_file": "/v1/fonts/:id/:filename",
     "transliterations": "/v1/transliterations",
     "verse_transliteration": "/v1/verse/:key/transliteration",
     "surah_info": "/v1/surah/:n/info",
@@ -966,20 +970,77 @@ Returns the catalog of 152 available audio recitations.
 
 #### `GET /v1/word-translations`
 
-Returns the catalog of available word-by-word translation languages (used with `?lang=` on word endpoints).
+Returns the catalog of available word-by-word translation resources (used with `?lang=` on word endpoints). Each `lang` is the filename stem under `data/words/translations/{lang}.json` (synced from QUL).
 
 **Response**
 ```json
 {
   "data": [
-    { "id": "en", "name": "English", "direction": "ltr" },
-    { "id": "ur", "name": "Urdu",    "direction": "rtl" }
+    { "lang": "english", "id": 131, "name": "English", "direction": "ltr" },
+    { "lang": "urdu", "id": 85, "name": "Urdu", "direction": "rtl" }
   ],
-  "meta": { "total": 22 }
+  "meta": { "total": 16 }
 }
 ```
 
-Returns `503` if the word translation catalog has not yet been synced.
+| Field | Type | Description |
+|---|---|---|
+| `lang` | string | Pass to `?lang=` (matches the JSON file stem) |
+| `id` | number | QUL translation resource id |
+| `name` | string | Display label when present |
+| `direction` | string | `ltr` or `rtl` |
+
+Returns `503` if `data/words/translations/index.json` has not been generated (run `scripts/scrape_qul.py --resources word-translations`).
+
+---
+
+### Fonts
+
+QUL font packages synced to `data/fonts/<id>/` (see [QUL fonts](https://qul.tarteel.ai/resources/font)). The API lists resources, returns manifests, and serves raw binary files with appropriate `Content-Type` (`font/woff2`, `font/ttf`, `application/json`, `application/x-bzip2` for `.json.bz2`, etc.).
+
+#### `GET /v1/fonts`
+
+Lists font resource ids. Empty `data` if no `data/fonts/` tree exists yet.
+
+**Response**
+```json
+{
+  "data": [
+    { "id": "459", "file_count": 6, "detail_url": "https://qul.tarteel.ai/resources/font/459" }
+  ],
+  "meta": { "total": 1 }
+}
+```
+
+#### `GET /v1/fonts/:id`
+
+Returns `detail_url` (when present in `manifest.json`) and the full `files` list for that id.
+
+**Response**
+```json
+{
+  "data": {
+    "id": "459",
+    "detail_url": "https://qul.tarteel.ai/resources/font/459",
+    "files": ["font.woff2", "font.ttf", "ligatures.json.bz2", "metadata.json"]
+  }
+}
+```
+
+`files` excludes only the manifest from disk enumeration when no manifest is present; when `manifest.json` exists, its `files` array is authoritative.
+
+Returns `404` if `data/fonts/:id/` does not exist.
+
+#### `GET /v1/fonts/:id/:filename`
+
+Streams a single file from `data/fonts/:id/`. `filename` must be one path segment (no `/`, no `..`). Typical names: `*.woff`, `*.woff2`, `*.ttf`, `*.otf`, `*.json`, `*.json.bz2`.
+
+**Example**
+```
+GET /v1/fonts/459/myfont.woff2
+```
+
+Returns `404` if the file is missing or the name is unsafe.
 
 ---
 

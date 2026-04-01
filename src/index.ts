@@ -13,6 +13,7 @@ import { catalog } from "./routes/catalog.js";
 import { mushaf } from "./routes/mushaf.js";
 import { structure } from "./routes/structure.js";
 import { similarAyahs } from "./routes/similar-ayahs.js";
+import { fonts } from "./routes/fonts.js";
 
 const app = new Hono();
 
@@ -80,6 +81,9 @@ app.get("/", (c) =>
       tafsir_coverage: "/v1/tafsirs/:id/surahs",
       recitations: "/v1/recitations",
       word_translations: "/v1/word-translations",
+      fonts: "/v1/fonts",
+      font: "/v1/fonts/:id",
+      font_file: "/v1/fonts/:id/:filename",
       // Structure
       structure: "/v1/structure",
     },
@@ -100,6 +104,7 @@ app.route("/v1/topics", topics);
 app.route("/v1/mutashabihat", mutashabihat);
 app.route("/v1/similar-ayahs", similarAyahs);
 app.route("/v1", catalog);            // /v1/translations, /v1/tafsirs, /v1/recitations, /v1/word-translations, /v1/transliterations, /v1/ayah-themes
+app.route("/v1/fonts", fonts);
 app.route("/v1", structure);          // /v1/structure
 
 // ---------------------------------------------------------------------------

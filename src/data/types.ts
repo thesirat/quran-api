@@ -231,10 +231,26 @@ export interface TanzilSajda {
 // Word translation catalog
 // ---------------------------------------------------------------------------
 export interface WordTranslationCatalogEntry {
+  /** Filename stem under data/words/translations/{lang}.json */
   lang: string;
   id: number;
   name?: string;
   direction?: "ltr" | "rtl";
+}
+
+// ---------------------------------------------------------------------------
+// QUL fonts (data/fonts/<id>/)
+// ---------------------------------------------------------------------------
+export interface FontListItem {
+  id: string;
+  file_count: number;
+  detail_url?: string;
+}
+
+/** Parsed data/fonts/<id>/manifest.json */
+export interface FontManifest {
+  detail_url?: string;
+  files?: string[];
 }
 
 // ---------------------------------------------------------------------------
