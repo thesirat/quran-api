@@ -25,7 +25,7 @@ jobs:
           cache: pip
 
       - name: Install Python dependencies
-        run: pip install requests tqdm
+        run: pip install -r requirements.txt
 
       - name: Cache Playwright browsers
         if: ${{ contains(github.event.inputs.sources || 'all', 'qul-scrape') || (github.event.inputs.sources || 'all') == 'all' }}
@@ -33,12 +33,11 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements*.txt') }}-chromium
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}-chromium
 
-      - name: Install Playwright (for QUL scraper)
+      - name: Install Playwright browsers
         if: ${{ contains(github.event.inputs.sources || 'all', 'qul-scrape') || (github.event.inputs.sources || 'all') == 'all' }}
         run: |
-          pip install playwright
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
             playwright install chromium --with-deps
           fi
