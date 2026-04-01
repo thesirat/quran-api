@@ -12,7 +12,7 @@ Outputs: same paths as sync_qul.py so the two scripts are interchangeable.
 
 Performance: each resource type gets its own browser context and runs
 concurrently via asyncio.gather(); within each scraper, download URLs are
-also resolved concurrently using a per-context semaphore.
+also resolved concurrently using a semaphore.
 
 Usage:
     python3 scripts/scrape_qul.py                      # all resources
@@ -38,18 +38,19 @@ from utils import write_json  # noqa: E402
 
 QUL_BASE = "https://qul.tarteel.ai"
 
-# Max simultaneous browser contexts (each context = one Chromium instance).
-# GitHub Actions has 7GB RAM; Chromium takes ~100-150MB per context.
-MAX_CONTEXTS = 10
+# Number of browser contexts in the pool.
+# Each context is ~150MB; 5 contexts = ~750MB, well within GitHub Actions 7GB.
+NUM_CONTEXTS = 5
 
-# Max concurrent downloads across all contexts.
-DOWNLOADS_PER_CONTEXT = 20
+# Max concurrent tabs open across ALL contexts combined.
+MAX_TABS = 77
 
-# Filled by main() after login; all contexts use these cookies.
+# Filled by main() after login; shared across all contexts via storage_state.
 _STORAGE_STATE: dict | None = None
 
-# Single shared browser context — all scrapers open tabs here instead of new contexts.
-_SHARED_CTX: Any = None
+# Context pool — tabs are round-robined across these for isolation + parallelism.
+_CTX_POOL: list[Any] = []
+_ctx_rr = 0  # round-robin counter (incremented atomically in single-threaded asyncio)
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +169,12 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
 
 
 async def _new_page(browser: Any, sem: asyncio.Semaphore) -> tuple[Any, Any]:
-    """Acquire semaphore slot and open a new tab in the shared context."""
+    """Acquire semaphore slot and open a tab in the next context (round-robin)."""
+    global _ctx_rr
     await sem.acquire()
-    page = await _SHARED_CTX.new_page()
+    ctx = _CTX_POOL[_ctx_rr % len(_CTX_POOL)]
+    _ctx_rr += 1
+    page = await ctx.new_page()
     return page, page  # ctx=page so _close_ctx just closes the tab
 
 
@@ -180,10 +184,10 @@ async def _close_ctx(ctx: Any, sem: asyncio.Semaphore) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Per-resource scrapers  (each receives a fresh browser + context semaphore)
+# Per-resource scrapers  (each receives a fresh browser + semaphore)
 # ---------------------------------------------------------------------------
 
-async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[quran-scripts] Quran text editions …")
     ctx, page = await _new_page(browser, sem)
     try:
@@ -193,39 +197,38 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore, dl_sem: asy
         print(f"  [quran-scripts] Found {count} download button(s).")
 
         async def _dl_one(i: int) -> None:
-            async with dl_sem:
-                sub_ctx, sub_page = await _new_page(browser, sem)
-                try:
-                    await sub_page.goto(f"{QUL_BASE}/resources/quran-script/", wait_until="domcontentloaded")
-                    btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-                    slug = await btn.evaluate(
-                        """el => {
-                            const row = el.closest('[data-slug],[data-resource-slug],tr,.resource-card');
-                            return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
-                        }"""
-                    )
-                    data = await _download_json(sub_page, btn)
-                    if not data:
-                        return
-                    out = (
-                        {f"{v['chapter_id']}:{v['verse_number']}": v.get("text", "") for v in data}
-                        if isinstance(data, list)
-                        else data.get("data", data)
-                    )
-                    name = _slug_to_name(slug) if slug else f"script-{i}"
-                    write_json(f"data/quran/{name}.json", out)
-                    print(f"  ✓ data/quran/{name}.json  ({len(out):,} verses)")
-                except Exception as exc:
-                    print(f"  ⚠ script #{i}: {exc}")
-                finally:
-                    await _close_ctx(sub_ctx, sem)
+            sub_ctx, sub_page = await _new_page(browser, sem)
+            try:
+                await sub_page.goto(f"{QUL_BASE}/resources/quran-script/", wait_until="domcontentloaded")
+                btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+                slug = await btn.evaluate(
+                    """el => {
+                        const row = el.closest('[data-slug],[data-resource-slug],tr,.resource-card');
+                        return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
+                    }"""
+                )
+                data = await _download_json(sub_page, btn)
+                if not data:
+                    return
+                out = (
+                    {f"{v['chapter_id']}:{v['verse_number']}": v.get("text", "") for v in data}
+                    if isinstance(data, list)
+                    else data.get("data", data)
+                )
+                name = _slug_to_name(slug) if slug else f"script-{i}"
+                write_json(f"data/quran/{name}.json", out)
+                print(f"  ✓ data/quran/{name}.json  ({len(out):,} verses)")
+            except Exception as exc:
+                print(f"  ⚠ script #{i}: {exc}")
+            finally:
+                await _close_ctx(sub_ctx, sem)
 
         await atqdm.gather(*[_dl_one(i) for i in range(count)], desc="  [quran-scripts]")
     finally:
         await _close_ctx(ctx, sem)
 
 
-async def scrape_translations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[translations] Verse translations …")
     ctx, page = await _new_page(browser, sem)
     try:
@@ -259,39 +262,38 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyn
         await _close_ctx(ctx, sem)
 
     async def _dl_one(i: int) -> None:
-        async with dl_sem:
-            sub_ctx, sub_page = await _new_page(browser, sem)
-            try:
-                await sub_page.goto(f"{QUL_BASE}/resources/translation/", wait_until="domcontentloaded")
-                btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-                tid = await btn.evaluate(
-                    """el => {
-                        const row = el.closest('tr,[data-id],.resource-row');
-                        return row?.dataset?.id || row?.dataset?.resourceId || '';
-                    }"""
-                )
-                data = await _download_json(sub_page, btn)
-                if not data:
-                    return
-                items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
-                out: dict = {}
-                for item in items:
-                    key = item.get("verse_key") or f"{item.get('chapter_id')}:{item.get('verse_number')}"
-                    out[key] = {"text": item.get("text", "")}
-                    if item.get("footnotes"):
-                        out[key]["footnotes"] = item["footnotes"]
-                if out:
-                    write_json(f"data/translations/{tid}.json", out)
-            except Exception as exc:
-                print(f"  ⚠ translation btn #{i}: {exc}")
-            finally:
-                await _close_ctx(sub_ctx, sem)
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await sub_page.goto(f"{QUL_BASE}/resources/translation/", wait_until="domcontentloaded")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            tid = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row');
+                    return row?.dataset?.id || row?.dataset?.resourceId || '';
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
+            out: dict = {}
+            for item in items:
+                key = item.get("verse_key") or f"{item.get('chapter_id')}:{item.get('verse_number')}"
+                out[key] = {"text": item.get("text", "")}
+                if item.get("footnotes"):
+                    out[key]["footnotes"] = item["footnotes"]
+            if out:
+                write_json(f"data/translations/{tid}.json", out)
+        except Exception as exc:
+            print(f"  ⚠ translation btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
 
     await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [translations]")
     print(f"  ✓ {btns_count} translation file(s) processed.")
 
 
-async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[tafsirs] Tafsirs …")
     ctx, page = await _new_page(browser, sem)
     try:
@@ -323,37 +325,36 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.S
         await _close_ctx(ctx, sem)
 
     async def _dl_one(i: int) -> None:
-        async with dl_sem:
-            sub_ctx, sub_page = await _new_page(browser, sem)
-            try:
-                await sub_page.goto(f"{QUL_BASE}/resources/tafsir/", wait_until="domcontentloaded")
-                btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-                tid = await btn.evaluate(
-                    """el => {
-                        const row = el.closest('tr,[data-id],.resource-row');
-                        return row?.dataset?.id || row?.dataset?.resourceId || '';
-                    }"""
-                )
-                data = await _download_json(sub_page, btn)
-                if not data:
-                    return
-                ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
-                by_surah: dict[int, list] = {}
-                for ayah in ayahs:
-                    surah = ayah.get("chapter_id") or ayah.get("surah_number") or 1
-                    by_surah.setdefault(surah, []).append(ayah)
-                for surah, surah_ayahs in by_surah.items():
-                    write_json(f"data/tafsirs/{tid}/{surah}.json", {"ayahs": surah_ayahs})
-            except Exception as exc:
-                print(f"  ⚠ tafsir btn #{i}: {exc}")
-            finally:
-                await _close_ctx(sub_ctx, sem)
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await sub_page.goto(f"{QUL_BASE}/resources/tafsir/", wait_until="domcontentloaded")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            tid = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row');
+                    return row?.dataset?.id || row?.dataset?.resourceId || '';
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
+            by_surah: dict[int, list] = {}
+            for ayah in ayahs:
+                surah = ayah.get("chapter_id") or ayah.get("surah_number") or 1
+                by_surah.setdefault(surah, []).append(ayah)
+            for surah, surah_ayahs in by_surah.items():
+                write_json(f"data/tafsirs/{tid}/{surah}.json", {"ayahs": surah_ayahs})
+        except Exception as exc:
+            print(f"  ⚠ tafsir btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
 
     await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [tafsirs]")
     print("  ✓ Tafsir files written under data/tafsirs/")
 
 
-async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[word-translations] Word-by-word translations …")
     ctx, page = await _new_page(browser, sem)
     btns_count = 0
@@ -365,40 +366,39 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore, dl_sem:
         await _close_ctx(ctx, sem)
 
     async def _dl_one(i: int) -> None:
-        async with dl_sem:
-            sub_ctx, sub_page = await _new_page(browser, sem)
-            try:
-                await sub_page.goto(f"{QUL_BASE}/resources/word-translation/", wait_until="domcontentloaded")
-                btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
-                lang = await btn.evaluate(
-                    """el => {
-                        const row = el.closest('tr,[data-id],.resource-row');
-                        return row?.querySelector('.language,[data-lang]')?.textContent?.trim()
-                            || row?.dataset?.language || '';
-                    }"""
-                )
-                data = await _download_json(sub_page, btn)
-                if not data:
-                    return
-                items = data if isinstance(data, list) else data.get("word_translations", data.get("results", []))
-                out: dict = {
-                    (item.get("location") or item.get("word_key")): item.get("text", "")
-                    for item in items
-                    if item.get("location") or item.get("word_key")
-                }
-                if out:
-                    name = lang.lower().replace(" ", "_") or f"wt-{i}"
-                    write_json(f"data/words/translations/{name}.json", out)
-                    print(f"  ✓ data/words/translations/{name}.json  ({len(out):,} words)")
-            except Exception as exc:
-                print(f"  ⚠ word-translation btn #{i}: {exc}")
-            finally:
-                await _close_ctx(sub_ctx, sem)
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await sub_page.goto(f"{QUL_BASE}/resources/word-translation/", wait_until="domcontentloaded")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            lang = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row');
+                    return row?.querySelector('.language,[data-lang]')?.textContent?.trim()
+                        || row?.dataset?.language || '';
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("word_translations", data.get("results", []))
+            out: dict = {
+                (item.get("location") or item.get("word_key")): item.get("text", "")
+                for item in items
+                if item.get("location") or item.get("word_key")
+            }
+            if out:
+                name = lang.lower().replace(" ", "_") or f"wt-{i}"
+                write_json(f"data/words/translations/{name}.json", out)
+                print(f"  ✓ data/words/translations/{name}.json  ({len(out):,} words)")
+        except Exception as exc:
+            print(f"  ⚠ word-translation btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
 
     await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [word-translations]")
 
 
-async def scrape_recitations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[recitations] Recitations + audio segments …")
     ctx, page = await _new_page(browser, sem)
     btns_count = 0
@@ -426,42 +426,41 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore, dl_sem: async
         await _close_ctx(ctx, sem)
 
     async def _dl_one(i: int) -> None:
-        async with dl_sem:
-            sub_ctx, sub_page = await _new_page(browser, sem)
-            try:
-                await sub_page.goto(f"{QUL_BASE}/resources/recitation/", wait_until="domcontentloaded")
-                btn = (
-                    sub_page.locator("a, button").filter(has_text="segment").or_(
-                        sub_page.locator("a, button").filter(has_text="json")
-                    )
-                ).nth(i)
-                rid = await btn.evaluate(
-                    """el => {
-                        const row = el.closest('tr,[data-id],.resource-row');
-                        return row?.dataset?.id || row?.dataset?.resourceId || '';
-                    }"""
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await sub_page.goto(f"{QUL_BASE}/resources/recitation/", wait_until="domcontentloaded")
+            btn = (
+                sub_page.locator("a, button").filter(has_text="segment").or_(
+                    sub_page.locator("a, button").filter(has_text="json")
                 )
-                data = await _download_json(sub_page, btn)
-                if not data:
-                    return
-                audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
-                segments: dict = {
-                    (af.get("verse_key") or f"{af.get('chapter_id')}:{af.get('verse_number')}"): af["segments"]
-                    for af in audio_files
-                    if af.get("segments")
-                }
-                if segments:
-                    write_json(f"data/audio/segments/{rid}.json", segments)
-                    print(f"  ✓ data/audio/segments/{rid}.json  ({len(segments):,} verses)")
-            except Exception as exc:
-                print(f"  ⚠ recitation btn #{i}: {exc}")
-            finally:
-                await _close_ctx(sub_ctx, sem)
+            ).nth(i)
+            rid = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row');
+                    return row?.dataset?.id || row?.dataset?.resourceId || '';
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
+            segments: dict = {
+                (af.get("verse_key") or f"{af.get('chapter_id')}:{af.get('verse_number')}"): af["segments"]
+                for af in audio_files
+                if af.get("segments")
+            }
+            if segments:
+                write_json(f"data/audio/segments/{rid}.json", segments)
+                print(f"  ✓ data/audio/segments/{rid}.json  ({len(segments):,} verses)")
+        except Exception as exc:
+            print(f"  ⚠ recitation btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
 
     await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [recitations]")
 
 
-async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Semaphore) -> None:
+async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
     print("\n[mushaf] Mushaf page layouts …")
     ctx, page = await _new_page(browser, sem)
     try:
@@ -505,7 +504,7 @@ SCRAPERS: dict[str, Any] = {
 
 
 async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
-    global _STORAGE_STATE, _SHARED_CTX
+    global _STORAGE_STATE, _CTX_POOL
 
     try:
         from playwright.async_api import async_playwright
@@ -514,7 +513,7 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         sys.exit(1)
 
     t0 = time.time()
-    print(f"Starting QUL scrape: {', '.join(resources)}  (headless={headless}, tabs={max_contexts})")
+    print(f"Starting QUL scrape: {', '.join(resources)}  (headless={headless}, contexts={NUM_CONTEXTS}, tabs={MAX_TABS})")
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=headless)
@@ -530,26 +529,28 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         _STORAGE_STATE = await login_ctx.storage_state()
         await login_ctx.close()
 
-        # Create ONE shared context — all scrapers open tabs here (no per-download contexts)
-        _SHARED_CTX = await browser.new_context(
-            user_agent="Mozilla/5.0 (compatible; quran-api-sync/2.0)",
-            accept_downloads=True,
-            storage_state=_STORAGE_STATE,
-        )
+        # Create context pool — tabs are distributed round-robin across them
+        ctx_kwargs: dict = {
+            "user_agent": "Mozilla/5.0 (compatible; quran-api-sync/2.0)",
+            "accept_downloads": True,
+            "storage_state": _STORAGE_STATE,
+        }
+        _CTX_POOL = [await browser.new_context(**ctx_kwargs) for _ in range(NUM_CONTEXTS)]
+        print(f"  {NUM_CONTEXTS} contexts ready, {MAX_TABS} max concurrent tabs.")
 
-        sem = asyncio.Semaphore(max_contexts)
-        dl_sem = asyncio.Semaphore(DOWNLOADS_PER_CONTEXT)
+        sem = asyncio.Semaphore(MAX_TABS)
 
         unknown = [n for n in resources if n not in SCRAPERS]
         if unknown:
             print(f"  ⚠ Unknown resource(s): {', '.join(unknown)}  (available: {', '.join(SCRAPERS)})")
 
         await asyncio.gather(*[
-            SCRAPERS[name](browser, sem, dl_sem)
+            SCRAPERS[name](browser, sem)
             for name in resources
             if name in SCRAPERS
         ])
-        await _SHARED_CTX.close()
+        for ctx in _CTX_POOL:
+            await ctx.close()
         await browser.close()
 
     print(f"\n✓ QUL scrape complete. ({time.time() - t0:.0f}s)")
