@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "Comma-separated sources to sync: qul, morphology, tanzil (or 'all')"
+        description: "Comma-separated sources to sync: qul-scrape, qul, morphology, tanzil (or 'all')"
         required: false
         default: "all"
 
@@ -26,12 +26,24 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests tqdm
 
+      - name: Install Playwright (for QUL scraper)
+        if: ${{ contains(github.event.inputs.sources || 'all', 'qul-scrape') || (github.event.inputs.sources || 'all') == 'all' }}
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
       - name: Run sync scripts
+        env:
+          QUL_EMAIL: ${{ secrets.QUL_EMAIL }}
+          QUL_PASSWORD: ${{ secrets.QUL_PASSWORD }}
         run: |
           INPUT="${{ github.event.inputs.sources || 'all' }}"
           echo "Syncing: $INPUT"
-          if [[ "$INPUT" == "all" || "$INPUT" == *"qul"* ]]; then
-            echo "--- Syncing QUL ---"
+          if [[ "$INPUT" == "all" || "$INPUT" == *"qul-scrape"* ]]; then
+            echo "--- Scraping QUL (Playwright) ---"
+            python3 scripts/scrape_qul.py --resources all
+          elif [[ "$INPUT" == *"qul"* ]]; then
+            echo "--- Syncing QUL (API fallback) ---"
             python3 scripts/sync_qul.py
           fi
           if [[ "$INPUT" == "all" || "$INPUT" == *"morphology"* ]]; then
