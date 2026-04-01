@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog } from "../data/loader.js";
+import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../data/loader.js";
 import type { SurahMeta } from "../data/types.js";
 
 const surah = new Hono();
@@ -261,6 +261,38 @@ surah.get("/:n/tafsir/:id", async (c) => {
     },
     meta: { total: chapter.ayahs.length },
   });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/surah/:n/info  — surah description & themes
+// Query: ?lang=english (default "english")
+// ---------------------------------------------------------------------------
+surah.get("/:n/info", async (c) => {
+  const n = Number(c.req.param("n"));
+  if (!Number.isInteger(n) || n < 1 || n > 114) {
+    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
+  }
+
+  const lang = c.req.query("lang") ?? "english";
+  const catalog = await loadSurahInfoCatalog();
+  const data = await loadSurahInfo(lang);
+  if (!data) {
+    const available = catalog ? catalog.map((e) => e.lang) : [];
+    return c.json(
+      {
+        status: 503,
+        type: "data_unavailable",
+        title: `Surah info for language '${lang}' not available`,
+        detail: available.length ? `Available languages: ${available.join(", ")}` : "Run scripts/scrape_qul.py --resources surah-info to generate it",
+      },
+      503
+    );
+  }
+
+  const entry = data[String(n)];
+  if (!entry) return c.json({ status: 404, type: "not_found", title: `No info found for surah ${n} in language '${lang}'` }, 404);
+
+  return c.json({ data: { surah: n, lang, ...entry } });
 });
 
 export { surah };

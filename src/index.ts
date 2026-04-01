@@ -12,6 +12,7 @@ import { mutashabihat } from "./routes/mutashabihat.js";
 import { catalog } from "./routes/catalog.js";
 import { mushaf } from "./routes/mushaf.js";
 import { structure } from "./routes/structure.js";
+import { similarAyahs } from "./routes/similar-ayahs.js";
 
 const app = new Hono();
 
@@ -61,6 +62,17 @@ app.get("/", (c) =>
       // Mutashabihat
       mutashabihat_list: "/v1/mutashabihat",
       mutashabihat: "/v1/mutashabihat/:key",
+      // Similar ayahs
+      similar_ayahs_list: "/v1/similar-ayahs",
+      similar_ayahs: "/v1/similar-ayahs/:key",
+      // Transliteration
+      transliterations: "/v1/transliterations",
+      verse_transliteration: "/v1/verse/:key/transliteration",
+      // Surah info
+      surah_info: "/v1/surah/:n/info",
+      // Ayah themes
+      ayah_themes: "/v1/ayah-themes",
+      verse_theme: "/v1/verse/:key/theme",
       // Catalogs
       translations: "/v1/translations",
       tafsirs: "/v1/tafsirs",
@@ -86,7 +98,8 @@ app.route("/v1/morphology", morphology);
 app.route("/v1/search", search);
 app.route("/v1/topics", topics);
 app.route("/v1/mutashabihat", mutashabihat);
-app.route("/v1", catalog);            // /v1/translations, /v1/tafsirs, /v1/recitations, /v1/word-translations
+app.route("/v1/similar-ayahs", similarAyahs);
+app.route("/v1", catalog);            // /v1/translations, /v1/tafsirs, /v1/recitations, /v1/word-translations, /v1/transliterations, /v1/ayah-themes
 app.route("/v1", structure);          // /v1/structure
 
 // ---------------------------------------------------------------------------

@@ -12,6 +12,8 @@ import {
   loadPauseMarks,
   loadRecitations,
   loadAudioSegments,
+  loadTransliteration,
+  loadAyahThemes,
 } from "../data/loader.js";
 import type { VerseData, WordData, TranslationEntry } from "../data/types.js";
 
@@ -220,6 +222,50 @@ verse.get("/:key/timestamps/:recitationId", async (c) => {
   if (!entry) return c.json({ status: 404, type: "not_found", title: "Timestamps not found for this verse" }, 404);
 
   return c.json({ data: { verse_key: key, recitation_id: rid, segments: entry } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/verse/:key/transliteration
+// Query: ?lang=en (default "en")
+// ---------------------------------------------------------------------------
+verse.get("/:key/transliteration", async (c) => {
+  const parsed = parseKey(c.req.param("key"));
+  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+
+  const key = `${parsed.surah}:${parsed.ayah}`;
+  const lang = c.req.query("lang") ?? "en";
+  const data = await loadTransliteration(lang);
+  if (!data) {
+    return c.json(
+      { status: 503, type: "data_unavailable", title: `Transliteration for '${lang}' not available`, detail: "Run scripts/scrape_qul.py --resources transliteration to generate it" },
+      503
+    );
+  }
+
+  const text = data[key];
+  if (text === undefined) return c.json({ status: 404, type: "not_found", title: "Transliteration not found for this verse" }, 404);
+
+  return c.json({ data: { verse_key: key, lang, text } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/verse/:key/theme
+// ---------------------------------------------------------------------------
+verse.get("/:key/theme", async (c) => {
+  const parsed = parseKey(c.req.param("key"));
+  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+
+  const key = `${parsed.surah}:${parsed.ayah}`;
+  const allThemes = await loadAyahThemes();
+  if (!allThemes) {
+    return c.json(
+      { status: 503, type: "data_unavailable", title: "Ayah themes not available", detail: "Run scripts/scrape_qul.py --resources ayah-themes to generate it" },
+      503
+    );
+  }
+
+  const themes = allThemes[key] ?? [];
+  return c.json({ data: { verse_key: key, themes } });
 });
 
 // ---------------------------------------------------------------------------

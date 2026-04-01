@@ -17,7 +17,7 @@ All endpoints are prefixed with `/v1/`. The root `GET /` returns a machine-reada
 
 | Source | License | Data |
 |---|---|---|
-| [QUL — Tarteel AI](https://qul.tarteel.ai) | MIT | Arabic text (28 scripts), 209 translations, 150+ tafsirs (30+ languages), 152 recitations, 77k morphology records, Mutashabihat, topics, Mushaf layouts |
+| [QUL — Tarteel AI](https://qul.tarteel.ai/resources/) | MIT | Arabic text (28 scripts), 209 translations, 16 word-by-word translations, 150+ tafsirs (30+ languages), 152 recitations + segment timestamps, Mushaf layouts, 77k morphology records, pause marks, 2,512 topics, Mutashabihat (5,277 pairs), similar ayahs (4,001 pairs), ayah themes (1,049), transliteration (9 resources), surah info (9 languages) |
 | [corpus.quran.com](https://corpus.quran.com) via [mustafa0x](https://github.com/mustafa0x/quran-morphology) | GPL | Sub-word morphological segmentation: POS tags, case, mood, voice, lemma, root per segment |
 | [Tanzil](https://tanzil.net) | Non-commercial | Structural metadata: juz, hizb, ruku, manzil, page boundaries |
 
@@ -140,6 +140,13 @@ Returns API metadata and a full endpoint index.
     "tafsir_coverage": "/v1/tafsirs/:id/surahs",
     "recitations": "/v1/recitations",
     "word_translations": "/v1/word-translations",
+    "transliterations": "/v1/transliterations",
+    "verse_transliteration": "/v1/verse/:key/transliteration",
+    "surah_info": "/v1/surah/:n/info",
+    "similar_ayahs_list": "/v1/similar-ayahs",
+    "similar_ayahs": "/v1/similar-ayahs/:key",
+    "ayah_themes": "/v1/ayah-themes",
+    "verse_theme": "/v1/verse/:key/theme",
     "structure": "/v1/structure"
   }
 }
@@ -972,7 +979,151 @@ Returns the catalog of available word-by-word translation languages (used with `
 }
 ```
 
-Returns `503` if the word translation catalog has not yet been synced (run `scripts/sync_qul.py`).
+Returns `503` if the word translation catalog has not yet been synced.
+
+---
+
+#### `GET /v1/transliterations`
+
+Returns the catalog of available transliteration resources.
+
+**Response**
+```json
+{
+  "data": [
+    { "lang": "en", "name": "English Transliteration", "type": "ayah" },
+    { "lang": "wbw_en", "name": "English Word-by-Word Transliteration", "type": "word" }
+  ],
+  "meta": { "total": 9 }
+}
+```
+
+`type` is `"ayah"` (verse-level) or `"word"` (word-level). Word-level file names are prefixed with `wbw_`.
+
+---
+
+#### `GET /v1/verse/:key/transliteration`
+
+Returns transliterated text for a verse.
+
+**Query parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `lang` | string | `en` | Language code from `/v1/transliterations` catalog |
+
+**Response**
+```json
+{
+  "data": { "verse_key": "1:1", "lang": "en", "text": "Bismi Allahi alrrahmani alrraheemi" }
+}
+```
+
+---
+
+### Surah Info
+
+#### `GET /v1/surah/:n/info`
+
+Returns a detailed description of a surah including revelation context and themes.
+
+**Path parameters**: `n` — surah number `1–114`.
+
+**Query parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `lang` | string | `english` | Language code (see available languages via `/v1/surah/:n/info` error response) |
+
+**Response**
+```json
+{
+  "data": {
+    "surah": 1,
+    "lang": "english",
+    "name": "Al-Fatihah",
+    "short_intro": "The Opening chapter...",
+    "description": "<p>Surah Al-Fatihah is the first chapter of the Quran...</p>",
+    "language": "english"
+  }
+}
+```
+
+Returns `503` with a list of available language codes if the requested language is not synced.
+
+---
+
+### Similar Ayahs
+
+Ayahs that share similarities in meaning, context, or wording (distinct from Mutashabihat, which focuses on near-identical phrasing).
+
+#### `GET /v1/similar-ayahs/:key`
+
+Returns similar ayahs for a given verse.
+
+**Path parameters**: `key` — verse key, e.g. `2:255`.
+
+**Response**
+```json
+{
+  "data": [
+    { "verse_key": "2:255", "similar_key": "3:2", "score": 0.85 }
+  ],
+  "meta": { "verse_key": "2:255", "total": 1 }
+}
+```
+
+---
+
+#### `GET /v1/similar-ayahs`
+
+Returns all 4,001 similar ayah pairs (paginated).
+
+**Query parameters**
+
+| Parameter | Type | Default | Max |
+|---|---|---|---|
+| `limit` | number | 100 | 500 |
+| `offset` | number | 0 | — |
+
+---
+
+### Ayah Themes
+
+#### `GET /v1/verse/:key/theme`
+
+Returns the core theme(s) for a specific ayah.
+
+**Response**
+```json
+{
+  "data": { "verse_key": "2:255", "themes": ["Tawhid", "Divine Attributes"] }
+}
+```
+
+---
+
+#### `GET /v1/ayah-themes`
+
+Returns all ayah themes (paginated).
+
+**Query parameters**
+
+| Parameter | Type | Default | Max |
+|---|---|---|---|
+| `limit` | number | 200 | 1000 |
+| `offset` | number | 0 | — |
+
+**Response**
+```json
+{
+  "data": [
+    { "verse_key": "1:1", "themes": ["Basmala"] },
+    { "verse_key": "2:255", "themes": ["Tawhid", "Divine Attributes"] }
+  ],
+  "meta": { "total": 1049, "limit": 200, "offset": 0 }
+}
+```
 
 ---
 
@@ -1045,6 +1196,6 @@ interface TranslationEntry {
 ## Data Sync
 
 Data is refreshed automatically every **Sunday at 06:00 UTC** via GitHub Actions (`sync.yml`).
-Each sync fetches the latest data from QUL, corpus.quran.com, and Tanzil, commits to `main`, and triggers a Vercel redeployment — invalidating the edge cache via a new ETag.
+Each sync downloads the latest data from QUL (via Playwright scraper), corpus.quran.com, and Tanzil, commits to `main`, and triggers a Vercel redeployment — invalidating the edge cache via a new ETag.
 
-You can also trigger a manual sync from the GitHub Actions tab with an optional `sources` input (`qul`, `morphology`, `tanzil`, or `all`).
+You can also trigger a manual sync from the GitHub Actions tab with an optional `sources` input (`qul-scrape`, `morphology`, `tanzil`, or `all`).

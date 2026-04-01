@@ -236,3 +236,37 @@ export interface WordTranslationCatalogEntry {
   name?: string;
   direction?: "ltr" | "rtl";
 }
+
+// ---------------------------------------------------------------------------
+// Transliteration
+// ---------------------------------------------------------------------------
+export interface TransliterationCatalogEntry {
+  lang: string;
+  id?: string | number;
+  name?: string;
+  type?: "ayah" | "word";
+}
+
+// ---------------------------------------------------------------------------
+// Surah information
+// ---------------------------------------------------------------------------
+export interface SurahInfo {
+  name?: string;
+  short_intro?: string;
+  description?: string;
+  language?: string;
+}
+
+export interface SurahInfoCatalogEntry {
+  lang: string;
+  name?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Similar ayahs
+// ---------------------------------------------------------------------------
+export interface SimilarAyahPair {
+  verse_key: string;
+  similar_key: string;
+  score?: number;
+}

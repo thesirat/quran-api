@@ -5,6 +5,8 @@ import {
   loadTafsirChapter,
   loadRecitations,
   loadWordTranslationCatalog,
+  loadTransliterationCatalog,
+  loadAyahThemes,
 } from "../data/loader.js";
 
 const catalog = new Hono();
@@ -90,11 +92,45 @@ catalog.get("/word-translations", async (c) => {
   const data = await loadWordTranslationCatalog();
   if (!data) {
     return c.json(
-      { status: 503, type: "data_unavailable", title: "Word translation catalog not available", detail: "Run scripts/sync_qul.py to generate it" },
+      { status: 503, type: "data_unavailable", title: "Word translation catalog not available", detail: "Run scripts/scrape_qul.py to generate it" },
       503
     );
   }
   return c.json({ data, meta: { total: data.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/transliterations  — catalog of available transliteration resources
+// ---------------------------------------------------------------------------
+catalog.get("/transliterations", async (c) => {
+  const data = await loadTransliterationCatalog();
+  if (!data) {
+    return c.json(
+      { status: 503, type: "data_unavailable", title: "Transliteration catalog not available", detail: "Run scripts/scrape_qul.py --resources transliteration to generate it" },
+      503
+    );
+  }
+  return c.json({ data, meta: { total: data.length } });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/ayah-themes  — all ayah themes (paginated)
+// ---------------------------------------------------------------------------
+catalog.get("/ayah-themes", async (c) => {
+  const allThemes = await loadAyahThemes();
+  if (!allThemes) {
+    return c.json(
+      { status: 503, type: "data_unavailable", title: "Ayah themes not available", detail: "Run scripts/scrape_qul.py --resources ayah-themes to generate it" },
+      503
+    );
+  }
+
+  const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
+  const offset = Number(c.req.query("offset") ?? 0);
+
+  const entries = Object.entries(allThemes);
+  const page = entries.slice(offset, offset + limit).map(([verse_key, themes]) => ({ verse_key, themes }));
+  return c.json({ data: page, meta: { total: entries.length, limit, offset } });
 });
 
 export { catalog };

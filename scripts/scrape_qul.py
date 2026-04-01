@@ -510,16 +510,462 @@ async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Quran metadata  (verse-level: page, juz, hizb, ruku, manzil, sajdah)
+# ---------------------------------------------------------------------------
+
+async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Download verse metadata (page, juz, hizb, ruku, manzil, sajdah)."""
+    print("\n[quran-metadata] Quran metadata …")
+    ctx, page = await _new_page(browser, sem)
+    btns_count = 0
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/quran-metadata/")
+        btns_count = await page.locator("a, button").filter(has_text="json").count()
+        print(f"  [quran-metadata] Found {btns_count} JSON download button(s).")
+    finally:
+        await _close_ctx(ctx, sem)
+
+    if not btns_count:
+        return
+
+    async def _dl_one(i: int) -> None:
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await _goto(sub_page, f"{QUL_BASE}/resources/quran-metadata/")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("verses", data.get("data", data.get("results", [])))
+            if not isinstance(items, list) or not items:
+                return
+            first = items[0]
+            if not any(k in first for k in ("page_number", "juz_number", "juz", "hizb_number")):
+                return  # Not verse meta; skip this file
+            meta: dict = {}
+            for v in items:
+                key = v.get("verse_key") or f"{v.get('chapter_id')}:{v.get('verse_number')}"
+                if not key or ":" not in str(key):
+                    continue
+                meta[key] = {
+                    "page": v.get("page_number") or v.get("page"),
+                    "juz": v.get("juz_number") or v.get("juz"),
+                    "hizb": v.get("hizb_number") or v.get("hizb"),
+                    "rub_el_hizb": v.get("rub_el_hizb_number") or v.get("rub_el_hizb"),
+                    "ruku": v.get("ruku_number") or v.get("ruku"),
+                    "manzil": v.get("manzil_number") or v.get("manzil"),
+                    "words_count": v.get("words_count"),
+                    "sajdah": v.get("sajdah_type") if (v.get("sajdah_number") or v.get("sajdah")) else None,
+                }
+            if meta:
+                write_json("data/verses/meta.json", meta)
+                print(f"  ✓ data/verses/meta.json  ({len(meta):,} verses)")
+        except Exception as exc:
+            print(f"  ⚠ quran-metadata btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
+
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [quran-metadata]")
+
+
+# ---------------------------------------------------------------------------
+# Words (Arabic text, codes, position, page, line)
+# ---------------------------------------------------------------------------
+
+async def scrape_words(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Word-level Arabic data: text, codes, position, page, line."""
+    print("\n[words] Words (Arabic) …")
+    ctx, page = await _new_page(browser, sem)
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/word/")
+        btn = page.locator("a, button").filter(has_text="json").first
+        if not await btn.count():
+            print("  ⚠ [words] No JSON download buttons found.")
+            return
+        data = await _download_json(page, btn)
+        if not data:
+            return
+        items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
+        words: dict = {}
+        for w in items:
+            loc = w.get("location") or w.get("word_key")
+            if not loc:
+                continue
+            words[loc] = {
+                "text": w.get("text_uthmani") or w.get("text", ""),
+                "text_indopak": w.get("text_indopak"),
+                "code_v1": w.get("code_v1"),
+                "code_v2": w.get("code_v2"),
+                "position": w.get("position"),
+                "page": w.get("page_number") or w.get("page"),
+                "line": w.get("line_number") or w.get("line"),
+                "type": w.get("char_type_name") or w.get("type"),
+            }
+        if words:
+            write_json("data/words/arabic.json", words)
+            print(f"  ✓ data/words/arabic.json  ({len(words):,} words)")
+    except Exception as exc:
+        print(f"  ⚠ words: {exc}")
+    finally:
+        await _close_ctx(ctx, sem)
+
+
+# ---------------------------------------------------------------------------
+# Morphology / Grammar  +  Pause marks
+# ---------------------------------------------------------------------------
+
+async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Grammar/morphology: POS, root, lemma, stem; also pause marks."""
+    print("\n[morphology] Morphology/grammar …")
+    ctx, page = await _new_page(browser, sem)
+    btns_count = 0
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/morphology/")
+        btns_count = await page.locator("a, button").filter(has_text="json").count()
+        print(f"  [morphology] Found {btns_count} JSON download button(s).")
+    finally:
+        await _close_ctx(ctx, sem)
+
+    if not btns_count:
+        return
+
+    async def _dl_one(i: int) -> None:
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await _goto(sub_page, f"{QUL_BASE}/resources/morphology/")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
+            if not isinstance(items, list) or not items:
+                return
+            first = items[0]
+            if "mark" in first or "pause_mark" in first:
+                marks: dict = {
+                    (pm.get("word_key") or pm.get("location")): pm.get("mark") or pm.get("pause_mark", "")
+                    for pm in items
+                    if pm.get("word_key") or pm.get("location")
+                }
+                write_json("data/morphology/pause-marks.json", marks)
+                print(f"  ✓ data/morphology/pause-marks.json  ({len(marks):,} marks)")
+            elif any(k in first for k in ("pos", "root", "lemma", "stem")):
+                out: dict = {}
+                for item in items:
+                    loc = item.get("location") or item.get("word_key")
+                    if not loc:
+                        continue
+                    out[loc] = {
+                        "pos": item.get("pos"),
+                        "root": item.get("root"),
+                        "lemma": item.get("lemma"),
+                        "stem": item.get("stem"),
+                    }
+                write_json("data/morphology/qul.json", out)
+                print(f"  ✓ data/morphology/qul.json  ({len(out):,} records)")
+        except Exception as exc:
+            print(f"  ⚠ morphology btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
+
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [morphology]")
+
+
+# ---------------------------------------------------------------------------
+# Topics and concepts
+# ---------------------------------------------------------------------------
+
+async def scrape_topics(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Topics and concepts in the Quran."""
+    print("\n[topics] Topics …")
+    ctx, page = await _new_page(browser, sem)
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/topic/")
+        btn = page.locator("a, button").filter(has_text="json").first
+        if not await btn.count():
+            print("  ⚠ [topics] No JSON download buttons found.")
+            return
+        data = await _download_json(page, btn)
+        if not data:
+            return
+        items = data if isinstance(data, list) else data.get("topics", data.get("data", data.get("results", [])))
+        topics: dict = {
+            (t.get("slug") or str(t.get("id", ""))): {
+                "name": t.get("name"),
+                "verse_keys": t.get("verse_keys", []),
+            }
+            for t in items
+            if t.get("slug") or t.get("id")
+        }
+        write_json("data/topics/data.json", topics)
+        print(f"  ✓ data/topics/data.json  ({len(topics):,} topics)")
+    except Exception as exc:
+        print(f"  ⚠ topics: {exc}")
+    finally:
+        await _close_ctx(ctx, sem)
+
+
+# ---------------------------------------------------------------------------
+# Mutashabihat (similar phrases)
+# ---------------------------------------------------------------------------
+
+async def scrape_mutashabihat(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Mutashabihat — similar/repeated phrases across the Quran."""
+    print("\n[mutashabihat] Mutashabihat …")
+    ctx, page = await _new_page(browser, sem)
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/mutashabihat/")
+        btn = page.locator("a, button").filter(has_text="json").first
+        if not await btn.count():
+            print("  ⚠ [mutashabihat] No JSON download buttons found.")
+            return
+        data = await _download_json(page, btn)
+        if not data:
+            return
+        items = data if isinstance(data, list) else data.get("results", data.get("data", []))
+        pairs = [
+            {
+                "verse_key": item.get("verse_key"),
+                "matched_key": item.get("matched_verse_key") or item.get("matched_key"),
+                "score": item.get("score"),
+                "coverage": item.get("coverage"),
+                "matched_word_positions": item.get("matched_word_positions"),
+            }
+            for item in items
+        ]
+        write_json("data/mutashabihat/data.json", pairs)
+        print(f"  ✓ data/mutashabihat/data.json  ({len(pairs):,} pairs)")
+    except Exception as exc:
+        print(f"  ⚠ mutashabihat: {exc}")
+    finally:
+        await _close_ctx(ctx, sem)
+
+
+# ---------------------------------------------------------------------------
+# Transliteration
+# ---------------------------------------------------------------------------
+
+async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Transliteration data (Quranic text in Latin script)."""
+    print("\n[transliteration] Transliterations …")
+    ctx, page = await _new_page(browser, sem)
+    btns_count = 0
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/transliteration/")
+        btns_count = await page.locator("a, button").filter(has_text="json").count()
+        print(f"  [transliteration] Found {btns_count} JSON download button(s).")
+    finally:
+        await _close_ctx(ctx, sem)
+
+    if not btns_count:
+        return
+
+    index: list = []
+
+    async def _dl_one(i: int) -> None:
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await _goto(sub_page, f"{QUL_BASE}/resources/transliteration/")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            meta_info = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row,.resource-card');
+                    return {
+                        id: row?.dataset?.id || row?.dataset?.resourceId || '',
+                        name: (row?.querySelector('.name,td:nth-child(1)')?.textContent || '').trim(),
+                        lang: (row?.querySelector('.language,[data-lang]')?.textContent || row?.dataset?.language || '').trim(),
+                        type: (row?.querySelector('[data-type],td:nth-child(2)')?.textContent || '').trim().toLowerCase(),
+                    };
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("transliterations", data.get("data", data.get("results", [])))
+            lang = (meta_info.get("lang") or meta_info.get("name") or f"tl-{i}").lower().replace(" ", "_")
+            type_hint = meta_info.get("type", "")
+            out: dict = {}
+            for item in items:
+                key = item.get("verse_key") or item.get("location") or item.get("word_key")
+                if key:
+                    out[key] = item.get("text", "")
+            if out:
+                is_wbw = "word" in type_hint or "wbw" in type_hint
+                fname = f"wbw_{lang}" if is_wbw else lang
+                write_json(f"data/transliteration/{fname}.json", out)
+                index.append({
+                    "lang": lang,
+                    "id": meta_info.get("id"),
+                    "name": meta_info.get("name"),
+                    "type": "word" if is_wbw else "ayah",
+                })
+                print(f"  ✓ data/transliteration/{fname}.json  ({len(out):,} entries)")
+        except Exception as exc:
+            print(f"  ⚠ transliteration btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
+
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [transliteration]")
+    if index:
+        write_json("data/transliteration/index.json", index)
+        print(f"  ✓ data/transliteration/index.json  ({len(index)} entries)")
+
+
+# ---------------------------------------------------------------------------
+# Surah information  (descriptions, themes, revelation context per language)
+# ---------------------------------------------------------------------------
+
+async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Surah/chapter information in multiple languages."""
+    print("\n[surah-info] Surah information …")
+    ctx, page = await _new_page(browser, sem)
+    btns_count = 0
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/chapter-info/")
+        btns_count = await page.locator("a, button").filter(has_text="json").count()
+        print(f"  [surah-info] Found {btns_count} JSON download button(s).")
+    finally:
+        await _close_ctx(ctx, sem)
+
+    if not btns_count:
+        return
+
+    index: list = []
+
+    async def _dl_one(i: int) -> None:
+        sub_ctx, sub_page = await _new_page(browser, sem)
+        try:
+            await _goto(sub_page, f"{QUL_BASE}/resources/chapter-info/")
+            btn = sub_page.locator("a, button").filter(has_text="json").nth(i)
+            meta_info = await btn.evaluate(
+                """el => {
+                    const row = el.closest('tr,[data-id],.resource-row,.resource-card');
+                    return {
+                        lang: (row?.querySelector('.language,[data-lang]')?.textContent || row?.dataset?.language || '').trim(),
+                        name: (row?.querySelector('.name,td:nth-child(1)')?.textContent || '').trim(),
+                    };
+                }"""
+            )
+            data = await _download_json(sub_page, btn)
+            if not data:
+                return
+            items = data if isinstance(data, list) else data.get("chapter_infos", data.get("data", data.get("results", [])))
+            lang = (meta_info.get("lang") or meta_info.get("name") or f"lang-{i}").lower().replace(" ", "_")
+            out: dict = {}
+            for item in items:
+                surah_num = str(item.get("chapter_id") or item.get("surah_number") or item.get("id", ""))
+                if not surah_num:
+                    continue
+                out[surah_num] = {
+                    "name": item.get("name") or item.get("chapter_name"),
+                    "short_intro": item.get("short_intro") or item.get("intro"),
+                    "description": item.get("info") or item.get("description") or item.get("text"),
+                    "language": lang,
+                }
+            if out:
+                write_json(f"data/surah-info/{lang}.json", out)
+                index.append({"lang": lang, "name": meta_info.get("name")})
+                print(f"  ✓ data/surah-info/{lang}.json  ({len(out)} surahs)")
+        except Exception as exc:
+            print(f"  ⚠ surah-info btn #{i}: {exc}")
+        finally:
+            await _close_ctx(sub_ctx, sem)
+
+    await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [surah-info]")
+    if index:
+        write_json("data/surah-info/index.json", index)
+        print(f"  ✓ data/surah-info/index.json  ({len(index)} languages)")
+
+
+# ---------------------------------------------------------------------------
+# Similar ayahs  (distinct from Mutashabihat)
+# ---------------------------------------------------------------------------
+
+async def scrape_similar_ayahs(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Similar ayahs — ayahs sharing meaning, context, or wording."""
+    print("\n[similar-ayahs] Similar ayahs …")
+    ctx, page = await _new_page(browser, sem)
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/similar-ayah/")
+        btn = page.locator("a, button").filter(has_text="json").first
+        if not await btn.count():
+            print("  ⚠ [similar-ayahs] No JSON download buttons found.")
+            return
+        data = await _download_json(page, btn)
+        if not data:
+            return
+        items = data if isinstance(data, list) else data.get("similar_ayahs", data.get("results", data.get("data", [])))
+        pairs = [
+            {
+                "verse_key": item.get("verse_key"),
+                "similar_key": item.get("similar_verse_key") or item.get("similar_key"),
+                "score": item.get("score"),
+            }
+            for item in items
+        ]
+        write_json("data/similar-ayahs/data.json", pairs)
+        print(f"  ✓ data/similar-ayahs/data.json  ({len(pairs):,} pairs)")
+    except Exception as exc:
+        print(f"  ⚠ similar-ayahs: {exc}")
+    finally:
+        await _close_ctx(ctx, sem)
+
+
+# ---------------------------------------------------------------------------
+# Ayah themes
+# ---------------------------------------------------------------------------
+
+async def scrape_ayah_themes(browser: Any, sem: asyncio.Semaphore) -> None:
+    """Core themes and topics of each ayah."""
+    print("\n[ayah-themes] Ayah themes …")
+    ctx, page = await _new_page(browser, sem)
+    try:
+        await _goto(page, f"{QUL_BASE}/resources/ayah-theme/")
+        btn = page.locator("a, button").filter(has_text="json").first
+        if not await btn.count():
+            print("  ⚠ [ayah-themes] No JSON download buttons found.")
+            return
+        data = await _download_json(page, btn)
+        if not data:
+            return
+        items = data if isinstance(data, list) else data.get("ayah_themes", data.get("results", data.get("data", [])))
+        themes: dict = {}
+        for item in items:
+            key = item.get("verse_key") or item.get("ayah_key")
+            if not key:
+                continue
+            theme = item.get("theme") or item.get("name")
+            themes.setdefault(key, [])
+            if theme and theme not in themes[key]:
+                themes[key].append(theme)
+        write_json("data/ayah-themes/data.json", themes)
+        print(f"  ✓ data/ayah-themes/data.json  ({len(themes):,} ayahs with themes)")
+    except Exception as exc:
+        print(f"  ⚠ ayah-themes: {exc}")
+    finally:
+        await _close_ctx(ctx, sem)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 SCRAPERS: dict[str, Any] = {
     "quran-scripts": scrape_quran_scripts,
+    "quran-metadata": scrape_quran_metadata,
+    "words": scrape_words,
+    "morphology": scrape_morphology,
     "translations": scrape_translations,
     "tafsirs": scrape_tafsirs,
     "word-translations": scrape_word_translations,
     "recitations": scrape_recitations,
     "mushaf": scrape_mushaf,
+    "topics": scrape_topics,
+    "mutashabihat": scrape_mutashabihat,
+    "transliteration": scrape_transliteration,
+    "surah-info": scrape_surah_info,
+    "similar-ayahs": scrape_similar_ayahs,
+    "ayah-themes": scrape_ayah_themes,
 }
 
 

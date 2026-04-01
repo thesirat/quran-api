@@ -92,6 +92,10 @@ import type {
   MushafPage,
   TanzilMeta,
   WordTranslationCatalogEntry,
+  TransliterationCatalogEntry,
+  SurahInfo,
+  SurahInfoCatalogEntry,
+  SimilarAyahPair,
 } from "./types.js";
 
 export const loadVerseMeta = () =>
@@ -103,7 +107,7 @@ export type ScriptName = (typeof VALID_SCRIPTS)[number];
 export async function loadScript(script: ScriptName): Promise<Record<string, string>> {
   const data = await tryLoadJson<Record<string, string>>(`data/quran/${script}.json`);
   if (data) return data;
-  throw new Error(`Script data not available: ${script}. Run sync_qul.py --quran-scripts.`);
+  throw new Error(`Script data not available: ${script}. Run scripts/scrape_qul.py --resources quran-scripts.`);
 }
 
 export const loadWordsArabic = () =>
@@ -160,3 +164,21 @@ export const loadStructureMeta = () =>
 
 export const loadWordTranslationCatalog = () =>
   tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");
+
+export const loadTransliterationCatalog = () =>
+  tryLoadJson<TransliterationCatalogEntry[]>("data/transliteration/index.json");
+
+export const loadTransliteration = (lang: string) =>
+  tryLoadJson<Record<string, string>>(`data/transliteration/${lang}.json`);
+
+export const loadSurahInfoCatalog = () =>
+  tryLoadJson<SurahInfoCatalogEntry[]>("data/surah-info/index.json");
+
+export const loadSurahInfo = (lang: string) =>
+  tryLoadJson<Record<string, SurahInfo>>(`data/surah-info/${lang}.json`);
+
+export const loadSimilarAyahs = () =>
+  tryLoadJson<SimilarAyahPair[]>("data/similar-ayahs/data.json");
+
+export const loadAyahThemes = () =>
+  tryLoadJson<Record<string, string[]>>("data/ayah-themes/data.json");
