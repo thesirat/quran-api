@@ -50,10 +50,44 @@ from utils import safe_path, write_json  # noqa: E402
 QUL_BASE = "https://qul.tarteel.ai"
 
 
-def _print_write_batch_summary(tag: str, attempted: int, statuses: list[str]) -> None:
+def _format_download_exc(tag: str, exc: BaseException, max_len: int = 220) -> str:
+    """One-line reason for grouping in Counter (tag + exception type + message)."""
+    msg = f"{tag}: {type(exc).__name__}: {exc}"
+    if len(msg) > max_len:
+        return msg[: max_len - 3] + "..."
+    return msg
+
+
+def _print_download_error_summary(tag: str, notes: list[str], *, indent: str = "  ") -> None:
+    """Print aggregated reasons when error_notes were collected from _download_file."""
+    if not notes:
+        return
+    c = Counter(notes)
+    distinct = len(c)
+    print(f"{indent}[{tag}] download failure detail: {len(notes)} event(s), {distinct} distinct reason(s)")
+    for line, count in c.most_common(20):
+        print(f"{indent}  ×{count}  {line}")
+    if distinct > 20:
+        print(f"{indent}  … ({distinct - 20} more distinct reason(s) not shown)")
+    blob = " ".join(notes).lower()
+    if "timeout" in blob or "expect_download" in blob:
+        print(
+            f"{indent}  ⓘ  Timeouts often mean the click did not start a browser download "
+            "(e.g. login modal or in-page UI). Try QUL_EMAIL / QUL_PASSWORD and re-run."
+        )
+
+
+def _print_write_batch_summary(
+    tag: str,
+    attempted: int,
+    statuses: list[str],
+    download_errors: list[str] | None = None,
+) -> None:
     """Print how parallel download tasks finished (each task reports one status string)."""
     if attempted == 0:
         print(f"  [{tag}] summary: attempted=0 (nothing to download)")
+        if download_errors:
+            _print_download_error_summary(tag, download_errors)
         return
     c = Counter(statuses)
     written = c.get("written", 0)
@@ -71,6 +105,8 @@ def _print_write_batch_summary(tag: str, attempted: int, statuses: list[str]) ->
         if n:
             pieces.append(f"{label}={n}")
     print(f"  [{tag}] summary: " + ", ".join(pieces) + (" (see ⚠ lines for error detail)" if c.get("error") else ""))
+    if download_errors:
+        _print_download_error_summary(tag, download_errors)
 
 # Number of browser contexts in the pool.
 # Each context is ~150MB; 5 contexts = ~750MB, well within GitHub Actions 7GB.
@@ -174,7 +210,14 @@ async def _login(page: Any) -> bool:
     return False
 
 
-async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -> Any:
+async def _download_json(
+    page: Any,
+    click_locator: Any,
+    timeout: int = 30_000,
+    *,
+    error_notes: list[str] | None = None,
+    error_tag: str = "",
+) -> Any:
     """
     Click a download button, let Playwright intercept the browser download natively,
     save to a temp file on disk, and return parsed JSON.
@@ -183,6 +226,7 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
     cookies and Playwright hands us the raw bytes, bypassing any JS fetch restrictions.
     Returns None on failure.
     """
+    tag = error_tag or "json download"
     tmp_path: str | None = None
     try:
         async with page.expect_download(timeout=timeout) as dl_info:
@@ -194,15 +238,36 @@ async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -
         await dl.save_as(tmp_path)
 
         with open(tmp_path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+            raw = f.read()
+        if not raw.strip():
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, ValueError("downloaded file is empty")))
+            return None
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            head = raw.strip()[:120].replace("\n", " ")
+            je = ValueError(f"invalid JSON ({exc.msg} at pos {exc.pos}); starts with {head!r}")
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, je))
+            return None
+    except Exception as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
         return None
     finally:
         if tmp_path:
             Path(tmp_path).unlink(missing_ok=True)
 
 
-async def _download_sqlite(page: Any, click_locator: Any, timeout: int = 60_000) -> list[dict] | None:
+async def _download_sqlite(
+    page: Any,
+    click_locator: Any,
+    timeout: int = 60_000,
+    *,
+    error_notes: list[str] | None = None,
+    error_tag: str = "",
+) -> list[dict] | None:
     """
     Click a SQLite download button, save to a temp file, read with sqlite3,
     and return the largest table as a list of row dicts.
@@ -210,6 +275,7 @@ async def _download_sqlite(page: Any, click_locator: Any, timeout: int = 60_000)
     """
     import sqlite3
 
+    tag = error_tag or "sqlite download"
     tmp_path: str | None = None
     con = None
     try:
@@ -230,6 +296,8 @@ async def _download_sqlite(page: Any, click_locator: Any, timeout: int = 60_000)
             ).fetchall()
         ]
         if not tables:
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, ValueError("sqlite file has no tables")))
             return None
         # Use the table with the most rows as the primary data source
         best = max(
@@ -237,8 +305,14 @@ async def _download_sqlite(page: Any, click_locator: Any, timeout: int = 60_000)
             key=lambda t: con.execute(f"SELECT COUNT(*) FROM \"{t}\"").fetchone()[0],
         )
         rows = [dict(r) for r in con.execute(f"SELECT * FROM \"{best}\"").fetchall()]
-        return rows or None
-    except Exception:
+        if not rows:
+            if error_notes is not None:
+                error_notes.append(_format_download_exc(tag, ValueError(f'table "{best}" is empty')))
+            return None
+        return rows
+    except Exception as exc:
+        if error_notes is not None:
+            error_notes.append(_format_download_exc(tag, exc))
         return None
     finally:
         if con:
@@ -266,11 +340,18 @@ async def _find_dl_btn_nth(page: Any, i: int) -> tuple[Any, str]:
     return json_loc.nth(i), "json"
 
 
-async def _download_file(page: Any, btn: Any, fmt: str) -> Any:
+async def _download_file(
+    page: Any,
+    btn: Any,
+    fmt: str,
+    *,
+    error_notes: list[str] | None = None,
+    error_tag: str = "",
+) -> Any:
     """Dispatch to the correct downloader based on format."""
     if fmt == "sqlite":
-        return await _download_sqlite(page, btn)
-    return await _download_json(page, btn)
+        return await _download_sqlite(page, btn, error_notes=error_notes, error_tag=error_tag)
+    return await _download_json(page, btn, error_notes=error_notes, error_tag=error_tag)
 
 
 # Font detail pages use many labels: Download woff / woff2 / ttf / otf / json / Ligatures (often .json.bz2), etc.
@@ -639,6 +720,8 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
+    download_errors: list[str] = []
+
     async def _dl_one(slot: int) -> str:
         i = row_indices[slot]
         sub_ctx, sub_page = await _new_page(browser, sem)
@@ -656,7 +739,13 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
                     return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"quran-script row {i}",
+            )
             if not data:
                 return "no_data"
             out = (
@@ -678,7 +767,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore) -> None:
 
     n_scripts = len(row_indices)
     st = await atqdm.gather(*[_dl_one(slot) for slot in range(n_scripts)], desc="  [quran-scripts]")
-    _print_write_batch_summary("quran-scripts", n_scripts, list(st))
+    _print_write_batch_summary("quran-scripts", n_scripts, list(st), download_errors)
 
 
 async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -719,6 +808,8 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
+    download_errors: list[str] = []
+
     async def _dl_one(slot: int) -> str:
         ri = ayah_row_i[slot]
         sub_ctx, sub_page = await _new_page(browser, sem)
@@ -740,7 +831,13 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"translation row {ri} (id={tid})",
+            )
             if not data:
                 return "no_data"
             items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
@@ -761,7 +858,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(slot) for slot in range(btns_count)], desc="  [translations]")
-    _print_write_batch_summary("translations", btns_count, list(st))
+    _print_write_batch_summary("translations", btns_count, list(st), download_errors)
 
 
 async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -800,6 +897,8 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
+    download_errors: list[str] = []
+
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
@@ -811,7 +910,13 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"tafsir btn #{i} (id={tid})",
+            )
             if not data:
                 return "no_data"
             ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
@@ -834,7 +939,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [tafsirs]")
-    _print_write_batch_summary("tafsirs", btns_count, list(st))
+    _print_write_batch_summary("tafsirs", btns_count, list(st), download_errors)
 
 
 async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -849,6 +954,8 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
         print(f"  [word-translations] Found {btns_count} word-by-word row(s) on translation listing.")
     finally:
         await _close_ctx(ctx, sem)
+
+    download_errors: list[str] = []
 
     async def _dl_one(slot: int) -> dict | None:
         ri = wbw_row_i[slot]
@@ -879,7 +986,13 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
                 }"""
             )
             tid = int(tid_raw) if str(tid_raw).isdigit() else slot
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"word-translation row {ri} (id={tid})",
+            )
             if not data:
                 return None
             items = data if isinstance(data, list) else data.get("word_translations", data.get("results", []))
@@ -923,6 +1036,8 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore) -> None
             f"  [word-translations] summary: json_files_written={n_ok}/{btns_count}, "
             f"failed={btns_count - n_ok}"
         )
+    if download_errors:
+        _print_download_error_summary("word-translations", download_errors)
     if wt_index:
         write_json("data/words/translations/index.json", wt_index)
         print(f"  ✓ data/words/translations/index.json  ({len(wt_index)} entries)")
@@ -960,6 +1075,8 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
     finally:
         await _close_ctx(ctx, sem)
 
+    download_errors: list[str] = []
+
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
@@ -982,7 +1099,13 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
                     return row?.dataset?.id || row?.dataset?.resourceId || '';
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"recitation btn #{i} (id={rid})",
+            )
             if not data:
                 return "no_data"
             audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
@@ -1003,7 +1126,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [recitations]")
-    _print_write_batch_summary("recitations", btns_count, list(st))
+    _print_write_batch_summary("recitations", btns_count, list(st), download_errors)
 
 
 async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
@@ -1012,8 +1135,13 @@ async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore) -> None:
     try:
         await _goto(page, f"{QUL_BASE}/resources/mushaf-layout/")
         btn, fmt = await _find_dl_btn_nth(page, 0)
-        data = await _download_file(page, btn, fmt)
+        mushaf_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=mushaf_dl_errs, error_tag="mushaf"
+        )
         if not data:
+            if mushaf_dl_errs:
+                _print_download_error_summary("mushaf", mushaf_dl_errs)
             return
         pages_raw = data if isinstance(data, list) else data.get("mushaf_pages", data.get("data", []))
         pages: dict = {
@@ -1059,12 +1187,20 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
     if not btns_count:
         return
 
+    download_errors: list[str] = []
+
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/quran-metadata/")
             btn, fmt = await _find_dl_btn_nth(sub_page, i)
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"quran-metadata btn #{i}",
+            )
             if not data:
                 return "no_data"
             items = data if isinstance(data, list) else data.get("verses", data.get("data", data.get("results", [])))
@@ -1100,7 +1236,7 @@ async def scrape_quran_metadata(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [quran-metadata]")
-    _print_write_batch_summary("quran-metadata", btns_count, list(st))
+    _print_write_batch_summary("quran-metadata", btns_count, list(st), download_errors)
 
 
 # ---------------------------------------------------------------------------
@@ -1136,8 +1272,13 @@ async def scrape_words(browser: Any, sem: asyncio.Semaphore) -> None:
             print("  ⚠ [words] No download buttons on word-by-word script page.")
             return
         btn, fmt = await _find_dl_btn_nth(page, 0)
-        data = await _download_file(page, btn, fmt)
+        words_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=words_dl_errs, error_tag="words (arabic)"
+        )
         if not data:
+            if words_dl_errs:
+                _print_download_error_summary("words", words_dl_errs)
             return
         items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
         if not isinstance(items, list):
@@ -1176,12 +1317,20 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
     if not btns_count:
         return
 
+    download_errors: list[str] = []
+
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
         try:
             await _goto(sub_page, f"{QUL_BASE}/resources/morphology/")
             btn, fmt = await _find_dl_btn_nth(sub_page, i)
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"morphology btn #{i}",
+            )
             if not data:
                 return "no_data"
             items = data if isinstance(data, list) else data.get("words", data.get("data", data.get("results", [])))
@@ -1224,7 +1373,7 @@ async def scrape_morphology(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [morphology]")
-    _print_write_batch_summary("morphology", btns_count, list(st))
+    _print_write_batch_summary("morphology", btns_count, list(st), download_errors)
 
 
 # ---------------------------------------------------------------------------
@@ -1247,8 +1396,13 @@ async def scrape_topics(browser: Any, sem: asyncio.Semaphore) -> None:
         if not avail:
             print("  ⚠ [topics] No download buttons found.")
             return
-        data = await _download_file(page, btn, fmt)
+        topics_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=topics_dl_errs, error_tag="topics"
+        )
         if not data:
+            if topics_dl_errs:
+                _print_download_error_summary("topics", topics_dl_errs)
             return
         items = data if isinstance(data, list) else data.get("topics", data.get("data", data.get("results", [])))
         if not isinstance(items, list):
@@ -1291,8 +1445,13 @@ async def scrape_mutashabihat(browser: Any, sem: asyncio.Semaphore) -> None:
             print("  ⚠ [mutashabihat] No download buttons found.")
             return
         btn, fmt = await _find_dl_btn_nth(page, 0)
-        data = await _download_file(page, btn, fmt)
+        muta_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=muta_dl_errs, error_tag="mutashabihat"
+        )
         if not data:
+            if muta_dl_errs:
+                _print_download_error_summary("mutashabihat", muta_dl_errs)
             return
         items = data if isinstance(data, list) else data.get("results", data.get("data", []))
         pairs = [
@@ -1338,6 +1497,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
         return
 
     index: list = []
+    download_errors: list[str] = []
 
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
@@ -1355,7 +1515,13 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
                     };
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"transliteration btn #{i}",
+            )
             if not data:
                 return "no_data"
             items = data if isinstance(data, list) else data.get("transliterations", data.get("data", data.get("results", [])))
@@ -1386,7 +1552,7 @@ async def scrape_transliteration(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [transliteration]")
-    _print_write_batch_summary("transliteration", btns_count, list(st))
+    _print_write_batch_summary("transliteration", btns_count, list(st), download_errors)
     if index:
         write_json("data/transliteration/index.json", index)
         print(f"  ✓ data/transliteration/index.json  ({len(index)} entries)")
@@ -1417,6 +1583,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
         return
 
     index: list = []
+    download_errors: list[str] = []
 
     async def _dl_one(i: int) -> str:
         sub_ctx, sub_page = await _new_page(browser, sem)
@@ -1432,7 +1599,13 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
                     };
                 }"""
             )
-            data = await _download_file(sub_page, btn, fmt)
+            data = await _download_file(
+                sub_page,
+                btn,
+                fmt,
+                error_notes=download_errors,
+                error_tag=f"surah-info btn #{i}",
+            )
             if not data:
                 return "no_data"
             items = data if isinstance(data, list) else data.get(
@@ -1464,7 +1637,7 @@ async def scrape_surah_info(browser: Any, sem: asyncio.Semaphore) -> None:
             await _close_ctx(sub_ctx, sem)
 
     st = await atqdm.gather(*[_dl_one(i) for i in range(btns_count)], desc="  [surah-info]")
-    _print_write_batch_summary("surah-info", btns_count, list(st))
+    _print_write_batch_summary("surah-info", btns_count, list(st), download_errors)
     if index:
         write_json("data/surah-info/index.json", index)
         print(f"  ✓ data/surah-info/index.json  ({len(index)} languages)")
@@ -1490,8 +1663,13 @@ async def scrape_similar_ayahs(browser: Any, sem: asyncio.Semaphore) -> None:
             print("  ⚠ [similar-ayahs] No download buttons found.")
             return
         btn, fmt = await _find_dl_btn_nth(page, 0)
-        data = await _download_file(page, btn, fmt)
+        sim_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=sim_dl_errs, error_tag="similar-ayahs"
+        )
         if not data:
+            if sim_dl_errs:
+                _print_download_error_summary("similar-ayahs", sim_dl_errs)
             return
         items = data if isinstance(data, list) else data.get("similar_ayahs", data.get("results", data.get("data", [])))
         pairs = [
@@ -1530,8 +1708,13 @@ async def scrape_ayah_themes(browser: Any, sem: asyncio.Semaphore) -> None:
             print("  ⚠ [ayah-themes] No download buttons found.")
             return
         btn, fmt = await _find_dl_btn_nth(page, 0)
-        data = await _download_file(page, btn, fmt)
+        themes_dl_errs: list[str] = []
+        data = await _download_file(
+            page, btn, fmt, error_notes=themes_dl_errs, error_tag="ayah-themes"
+        )
         if not data:
+            if themes_dl_errs:
+                _print_download_error_summary("ayah-themes", themes_dl_errs)
             return
         items = data if isinstance(data, list) else data.get("ayah_themes", data.get("results", data.get("data", [])))
         themes: dict = {}
