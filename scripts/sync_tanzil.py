@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -89,6 +90,7 @@ def _fetch_resource(label: str, url: str, timeout: int) -> tuple[str, str | None
 def main() -> None:
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    t0 = time.time()
     tasks = [
         ("quran-data.js", QURAN_DATA_URL, 60),
         ("uthmani", UTHMANI_URL, 120),
@@ -102,6 +104,8 @@ def main() -> None:
         for fut in as_completed(futures):
             label, text = fut.result()
             results[label] = text
+            if text:
+                print(f"  ✓ {label} downloaded ({len(text):,} chars)")
 
     # Process quran-data.js
     if results.get("quran-data.js"):
@@ -129,6 +133,8 @@ def main() -> None:
             print(f"  ✓ data/quran/tanzil-simple.json  ({len(simple):,} verses)")
         else:
             print("  ⚠ Simple text download returned no verse data (may require manual download).")
+
+    print(f"\n✓ Tanzil sync complete. ({time.time() - t0:.0f}s)")
 
 
 if __name__ == "__main__":

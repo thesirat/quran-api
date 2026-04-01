@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -191,19 +192,21 @@ def parse_tsv(text: str) -> tuple[dict, dict, dict]:
 
 
 def main() -> None:
+    t0 = time.time()
     print("Downloading quran-morphology.txt …")
     text = fetch(TSV_URL, timeout=120).text
-    print(f"  {len(text):,} characters — parsing …")
+    print(f"  {len(text):,} characters downloaded ({time.time() - t0:.1f}s) — parsing …")
 
+    t1 = time.time()
     corpus, roots, lemmas = parse_tsv(text)
-    print(f"  {len(corpus):,} word keys  |  {len(roots):,} roots  |  {len(lemmas):,} lemmas")
+    print(f"  {len(corpus):,} word keys  |  {len(roots):,} roots  |  {len(lemmas):,} lemmas  ({time.time() - t1:.1f}s)")
 
     write_json("data/morphology/corpus.json", corpus)
     write_json("data/morphology/roots.json", roots)
     write_json("data/morphology/lemmas.json", lemmas)
     print("  ✓ data/morphology/corpus.json")
     print("  ✓ data/morphology/roots.json")
-    print("  ✓ data/morphology/lemmas.json")
+    print(f"  ✓ data/morphology/lemmas.json  (total: {time.time() - t0:.0f}s)")
 
 
 if __name__ == "__main__":

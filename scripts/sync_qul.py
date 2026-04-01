@@ -25,6 +25,7 @@ Outputs:
 from __future__ import annotations
 
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -79,6 +80,8 @@ def _fetch_all_pages(url_template: str, items_key: str, workers: int = 20) -> li
 
     if total_pages <= 1:
         return items
+
+    print(f"    {total_pages} pages — fetching {total_pages - 1} remaining in parallel …")
 
     def _get_page(p: int) -> list[dict]:
         try:
@@ -248,14 +251,18 @@ def sync_translations() -> None:
     write_json("data/translations/index.json", catalog)
     print(f"  ✓ data/translations/index.json  ({len(catalog)} entries)")
 
+    from tqdm import tqdm
+
     written = 0
     with ThreadPoolExecutor(max_workers=20) as pool:
         futures = {pool.submit(_fetch_translation, entry): entry["id"] for entry in catalog}
-        for fut in as_completed(futures):
-            tid, out = fut.result()
-            if out:
-                write_json(f"data/translations/{tid}.json", out)
-                written += 1
+        with tqdm(total=len(futures), desc="  translations", unit="file") as bar:
+            for fut in as_completed(futures):
+                tid, out = fut.result()
+                if out:
+                    write_json(f"data/translations/{tid}.json", out)
+                    written += 1
+                bar.update(1)
     print(f"  ✓ {written}/{len(catalog)} translation files written")
 
 
@@ -599,6 +606,7 @@ def main() -> None:
 
     tafsirs_only = args.tafsirs_only or args.multilang_tafsirs or bool(args.tafsir_ids)
 
+    t0 = time.time()
     if tafsirs_only:
         sync_tafsirs(ids=tafsir_ids, workers=args.workers)
     else:
@@ -615,7 +623,7 @@ def main() -> None:
         sync_pause_marks()
         sync_mutashabihat()
 
-    print("\n✓ QUL sync complete.")
+    print(f"\n✓ QUL sync complete. ({time.time() - t0:.0f}s)")
 
 
 if __name__ == "__main__":

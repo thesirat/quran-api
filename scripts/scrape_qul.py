@@ -27,6 +27,8 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -89,43 +91,32 @@ async def _login(page: Any) -> bool:
     return False
 
 
-async def _resolve_download_url(page: Any, click_locator: Any, timeout: int = 20_000) -> str | None:
+async def _download_json(page: Any, click_locator: Any, timeout: int = 30_000) -> Any:
     """
-    Click an element, intercept either:
-      1. A browser Download event  → return download.url
-      2. A JSON/binary response    → return response.url
+    Click a download button, let Playwright intercept the browser download natively,
+    save to a temp file on disk, and return parsed JSON.
+
+    This avoids CORS/CSP entirely — the browser downloads the file using its own
+    cookies and Playwright hands us the raw bytes, bypassing any JS fetch restrictions.
     Returns None on failure.
     """
-    captured_url: list[str] = []
-
-    async def _on_response(resp: Any) -> None:
-        ct = resp.headers.get("content-type", "")
-        if "json" in ct or "octet-stream" in ct or "zip" in ct:
-            captured_url.append(resp.url)
-
-    page.on("response", _on_response)
+    tmp_path: str | None = None
     try:
         async with page.expect_download(timeout=timeout) as dl_info:
             await click_locator.click()
         dl = await dl_info.value
-        page.remove_listener("response", _on_response)
-        return dl.url
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+            tmp_path = tmp.name
+        await dl.save_as(tmp_path)
+
+        with open(tmp_path, encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
-        page.remove_listener("response", _on_response)
-        return captured_url[-1] if captured_url else None
-
-
-async def _fetch_json(page: Any, url: str) -> Any:
-    """Fetch a URL using the browser's cookies (authenticated), return parsed JSON."""
-    return await page.evaluate(
-        """async (url) => {
-            const r = await fetch(url, {credentials: 'include'});
-            if (!r.ok) return null;
-            const text = await r.text();
-            try { return JSON.parse(text); } catch { return null; }
-        }""",
-        url,
-    )
+        return None
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 async def _new_page(browser: Any, sem: asyncio.Semaphore) -> tuple[Any, Any]:
@@ -172,10 +163,7 @@ async def scrape_quran_scripts(browser: Any, sem: asyncio.Semaphore, dl_sem: asy
                             return row?.dataset?.slug || row?.dataset?.resourceSlug || '';
                         }"""
                     )
-                    url = await _resolve_download_url(sub_page, btn)
-                    if not url:
-                        return
-                    data = await _fetch_json(sub_page, url)
+                    data = await _download_json(sub_page, btn)
                     if not data:
                         return
                     out = (
@@ -241,10 +229,7 @@ async def scrape_translations(browser: Any, sem: asyncio.Semaphore, dl_sem: asyn
                         return row?.dataset?.id || row?.dataset?.resourceId || '';
                     }"""
                 )
-                url = await _resolve_download_url(sub_page, btn)
-                if not url:
-                    return
-                data = await _fetch_json(sub_page, url)
+                data = await _download_json(sub_page, btn)
                 if not data:
                     return
                 items = data if isinstance(data, list) else data.get("translations", data.get("results", []))
@@ -308,10 +293,7 @@ async def scrape_tafsirs(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.S
                         return row?.dataset?.id || row?.dataset?.resourceId || '';
                     }"""
                 )
-                url = await _resolve_download_url(sub_page, btn)
-                if not url:
-                    return
-                data = await _fetch_json(sub_page, url)
+                data = await _download_json(sub_page, btn)
                 if not data:
                     return
                 ayahs = data.get("tafsirs") or data.get("data") or (data if isinstance(data, list) else [])
@@ -354,10 +336,7 @@ async def scrape_word_translations(browser: Any, sem: asyncio.Semaphore, dl_sem:
                             || row?.dataset?.language || '';
                     }"""
                 )
-                url = await _resolve_download_url(sub_page, btn)
-                if not url:
-                    return
-                data = await _fetch_json(sub_page, url)
+                data = await _download_json(sub_page, btn)
                 if not data:
                     return
                 items = data if isinstance(data, list) else data.get("word_translations", data.get("results", []))
@@ -421,10 +400,7 @@ async def scrape_recitations(browser: Any, sem: asyncio.Semaphore, dl_sem: async
                         return row?.dataset?.id || row?.dataset?.resourceId || '';
                     }"""
                 )
-                url = await _resolve_download_url(sub_page, btn)
-                if not url:
-                    return
-                data = await _fetch_json(sub_page, url)
+                data = await _download_json(sub_page, btn)
                 if not data:
                     return
                 audio_files = data if isinstance(data, list) else data.get("audio_files", data.get("results", []))
@@ -450,11 +426,7 @@ async def scrape_mushaf(browser: Any, sem: asyncio.Semaphore, dl_sem: asyncio.Se
     try:
         await page.goto(f"{QUL_BASE}/resources/mushaf/", wait_until="domcontentloaded")
         btn = page.locator("a, button").filter(has_text="json").first
-        url = await _resolve_download_url(page, btn)
-        if not url:
-            print("  ⚠ No mushaf download URL found.")
-            return
-        data = await _fetch_json(page, url)
+        data = await _download_json(page, btn)
         if not data:
             return
         pages_raw = data if isinstance(data, list) else data.get("mushaf_pages", data.get("data", []))
@@ -500,6 +472,9 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         print("ERROR: playwright not installed.  Run: pip install playwright && playwright install chromium")
         sys.exit(1)
 
+    t0 = time.time()
+    print(f"Starting QUL scrape: {', '.join(resources)}  (headless={headless}, contexts={max_contexts})")
+
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=headless)
 
@@ -528,7 +503,7 @@ async def main(resources: list[str], headless: bool, max_contexts: int) -> None:
         ])
         await browser.close()
 
-    print("\n✓ QUL scrape complete.")
+    print(f"\n✓ QUL scrape complete. ({time.time() - t0:.0f}s)")
 
 
 if __name__ == "__main__":
