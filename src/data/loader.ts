@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import simdjson from "simdjson";
 
 // Module-level cache: persists across warm Vercel invocations.
 const cache = new Map<string, unknown>();
+// Separate cache for lazily-parsed large JSON files.
+const lazyCache = new Map<string, Record<string, unknown>>();
 
 const ROOT = process.cwd();
 
@@ -28,9 +31,47 @@ export async function tryLoadJson<T>(relPath: string): Promise<T | undefined> {
   }
 }
 
+/**
+ * Read a large JSON file using simdjson SIMD acceleration.
+ * Values are extracted lazily per key and cached to avoid repeated C++ round-trips.
+ * The returned object is a Proxy — property access drives the lazy extraction.
+ */
+export async function loadJsonLazy<T extends Record<string, unknown>>(relPath: string): Promise<T> {
+  if (lazyCache.has(relPath)) return lazyCache.get(relPath) as T;
+  const abs = path.join(ROOT, relPath);
+  const raw = await fs.readFile(abs, "utf-8");
+  const tape = simdjson.lazyParse(raw);
+  const keyCache = new Map<string, unknown>();
+  const proxy = new Proxy({} as T, {
+    get(_t, prop: string | symbol) {
+      if (typeof prop !== "string") return undefined;
+      if (keyCache.has(prop)) return keyCache.get(prop);
+      const val = tape.valueForKeyPath(prop) as unknown;
+      keyCache.set(prop, val);
+      return val;
+    },
+    has(_t, prop: string | symbol) {
+      if (typeof prop !== "string") return false;
+      return tape.valueForKeyPath(prop) !== undefined;
+    },
+  });
+  lazyCache.set(relPath, proxy as Record<string, unknown>);
+  return proxy;
+}
+
+/** loadJsonLazy variant that returns undefined if the file doesn't exist. */
+export async function tryLoadJsonLazy<T extends Record<string, unknown>>(relPath: string): Promise<T | undefined> {
+  try {
+    return await loadJsonLazy<T>(relPath);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Clear the in-memory cache (useful for testing). */
 export function clearCache(): void {
   cache.clear();
+  lazyCache.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -71,16 +112,16 @@ export const loadWordTranslation = (lang: string) =>
   tryLoadJson<Record<string, string>>(`data/words/translations/${lang}.json`);
 
 export const loadCorpusMorphology = () =>
-  loadJson<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
+  loadJsonLazy<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
 
 export const loadQulMorphology = () =>
   tryLoadJson<Record<string, QulMorphWord>>("data/morphology/qul.json");
 
 export const loadRootsIndex = () =>
-  loadJson<Record<string, string[]>>("data/morphology/roots.json");
+  loadJsonLazy<Record<string, string[]>>("data/morphology/roots.json");
 
 export const loadLemmasIndex = () =>
-  tryLoadJson<Record<string, string[]>>("data/morphology/lemmas.json");
+  tryLoadJsonLazy<Record<string, string[]>>("data/morphology/lemmas.json");
 
 export const loadPauseMarks = () =>
   tryLoadJson<Record<string, string>>("data/morphology/pause-marks.json");
