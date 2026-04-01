@@ -77,36 +77,58 @@ def parse_text_file(raw: str) -> dict[str, str]:
     return verses
 
 
-def main() -> None:
-    print("Downloading quran-data.js from Tanzil …")
-    raw_js = fetch(QURAN_DATA_URL, timeout=60).text
-    data = parse_quran_data(raw_js)
-    write_json("data/structure/meta.json", data)
-    print("  ✓ data/structure/meta.json")
-
-    print("Downloading Uthmani text from Tanzil …")
+def _fetch_resource(label: str, url: str, timeout: int) -> tuple[str, str | None]:
+    """Download a URL; return (label, text) or (label, None) on failure."""
     try:
-        uthmani_raw = fetch(UTHMANI_URL, timeout=120).text
-        uthmani = parse_text_file(uthmani_raw)
+        return label, fetch(url, timeout=timeout).text
+    except Exception as exc:
+        print(f"  ⚠ {label} skipped: {exc}")
+        return label, None
+
+
+def main() -> None:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    tasks = [
+        ("quran-data.js", QURAN_DATA_URL, 60),
+        ("uthmani", UTHMANI_URL, 120),
+        ("simple", SIMPLE_URL, 120),
+    ]
+
+    print("Downloading Tanzil resources in parallel …")
+    results: dict[str, str | None] = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(_fetch_resource, label, url, timeout): label for label, url, timeout in tasks}
+        for fut in as_completed(futures):
+            label, text = fut.result()
+            results[label] = text
+
+    # Process quran-data.js
+    if results.get("quran-data.js"):
+        try:
+            data = parse_quran_data(results["quran-data.js"])
+            write_json("data/structure/meta.json", data)
+            print("  ✓ data/structure/meta.json")
+        except Exception as exc:
+            print(f"  ⚠ quran-data.js parse error: {exc}")
+
+    # Process Uthmani text
+    if results.get("uthmani"):
+        uthmani = parse_text_file(results["uthmani"])
         if uthmani:
             write_json("data/quran/tanzil-uthmani.json", uthmani)
             print(f"  ✓ data/quran/tanzil-uthmani.json  ({len(uthmani):,} verses)")
         else:
             print("  ⚠ Uthmani text download returned no verse data (may require manual download).")
-    except Exception as exc:
-        print(f"  ⚠ Uthmani text skipped: {exc}")
 
-    print("Downloading Simple text from Tanzil …")
-    try:
-        simple_raw = fetch(SIMPLE_URL, timeout=120).text
-        simple = parse_text_file(simple_raw)
+    # Process Simple text
+    if results.get("simple"):
+        simple = parse_text_file(results["simple"])
         if simple:
             write_json("data/quran/tanzil-simple.json", simple)
             print(f"  ✓ data/quran/tanzil-simple.json  ({len(simple):,} verses)")
         else:
             print("  ⚠ Simple text download returned no verse data (may require manual download).")
-    except Exception as exc:
-        print(f"  ⚠ Simple text skipped: {exc}")
 
 
 if __name__ == "__main__":

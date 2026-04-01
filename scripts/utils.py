@@ -10,10 +10,16 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 import requests
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "quran-api-sync/1.0"})
+
+# Increase connection pool size to support high-concurrency parallel fetches.
+_adapter = HTTPAdapter(pool_connections=20, pool_maxsize=50)
+SESSION.mount("https://", _adapter)
+SESSION.mount("http://", _adapter)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -61,7 +67,7 @@ def read_json(rel: str | Path) -> Any:
 
 def parallel_download(
     tasks: list[tuple[str, str | Path]],
-    workers: int = 16,
+    workers: int = 32,
     desc: str = "Downloading",
 ) -> list[tuple[str, str | Path, Exception | None]]:
     """
