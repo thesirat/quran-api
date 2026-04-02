@@ -89,43 +89,98 @@ def write_json(path: str, data: Any):
 
 class QULSession:
     """Manages Playwright browser instance and a pool of authenticated contexts."""
-    
+
+    class WorkerPage:
+        """Acquires a tab slot (semaphore), opens a page on a round-robin context, closes on exit."""
+
+        __slots__ = ("_session", "_page")
+
+        def __init__(self, session: QULSession):
+            self._session = session
+            self._page: Any = None
+
+        async def __aenter__(self) -> Any:
+            await self._session.semaphore.acquire()
+            ctxs = self._session.contexts
+            i = self._session._ctx_rr % len(ctxs)
+            self._session._ctx_rr += 1
+            self._page = await ctxs[i].new_page()
+            return self._page
+
+        async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            try:
+                if self._page is not None:
+                    await self._page.close()
+            finally:
+                self._session.semaphore.release()
+
     def __init__(self, config: QULConfig):
         self.config = config
         self.pw: Any = None
         self.browser: Any = None
         self.context: Any = None
         self.page: Any = None
+        self.contexts: list[Any] = []
         self.semaphore = asyncio.Semaphore(config.max_tabs)
         self.storage_state: dict | None = None
         self._ctx_rr = 0
 
+    def worker_page(self) -> QULSession.WorkerPage:
+        return QULSession.WorkerPage(self)
+
     async def __aenter__(self):
         self.pw = await async_playwright().start()
         self.browser = await self.pw.chromium.launch(headless=self.config.headless)
-        
-        # Single persistent context and page for metadata
+
         self.context = await self.browser.new_context(
             user_agent="Mozilla/5.0 (compatible; quran-api-sync/2.0)",
             accept_downloads=True,
         )
         self.page = await self.context.new_page()
-        
-        # Login once
+
         login_url = f"{self.config.base_url}/users/sign_in"
         logger.info(f"Initial login at {login_url}...")
         await self.page.goto(login_url, wait_until="networkidle")
         success = await self._try_login_flow(self.page)
         if not success:
             logger.warning("Continuing with unauthenticated session.")
-        
+
+        nctx = max(1, int(self.config.num_contexts))
+        self.contexts = [self.context]
+        if nctx > 1:
+            state = await self.context.storage_state()
+            ua = "Mozilla/5.0 (compatible; quran-api-sync/2.0)"
+            for _ in range(nctx - 1):
+                c = await self.browser.new_context(
+                    storage_state=state,
+                    user_agent=ua,
+                    accept_downloads=True,
+                )
+                self.contexts.append(c)
+            logger.info(
+                f"Using {len(self.contexts)} browser contexts; "
+                f"up to {self.config.max_tabs} concurrent download tabs (QUL_MAX_TABS)."
+            )
+        else:
+            logger.info(
+                f"Using 1 browser context; "
+                f"up to {self.config.max_tabs} concurrent download tabs (QUL_MAX_TABS)."
+            )
+
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self.page: await self.page.close()
-        if self.context: await self.context.close()
-        if self.browser: await self.browser.close()
-        if self.pw: await self.pw.stop()
+        if self.page:
+            await self.page.close()
+            self.page = None
+        for ctx in self.contexts:
+            await ctx.close()
+        self.contexts = []
+        self.context = None
+        if self.browser:
+            await self.browser.close()
+        if self.pw:
+            await self.pw.stop()
 
     async def _try_login_flow(self, page: Any) -> bool:
         if not self.config.email or not self.config.password:
@@ -195,6 +250,11 @@ class BaseScraper:
         self.name = name
         self.stats = Counter()
         self.errors: list[str] = []
+        self._stats_lock = asyncio.Lock()
+
+    async def bump_stat(self, key: str, inc: int = 1) -> None:
+        async with self._stats_lock:
+            self.stats[key] += inc
 
     async def run(self):
         raise NotImplementedError()
@@ -279,15 +339,138 @@ class BaseScraper:
         except Exception: return None
         finally: tmp_path.unlink(missing_ok=True)
 
+    def _pick_json_member_from_zip(self, zf: zipfile.ZipFile) -> str | None:
+        """QUL packs multiple JSON files; the lexicographically first is often an empty manifest."""
+        json_files = [n for n in zf.namelist() if n.endswith(".json") and not n.endswith("/")]
+        if not json_files:
+            return None
+        lower_names = [(n, n.lower()) for n in json_files]
+        for n, low in lower_names:
+            if "simple" in low and "manifest" not in low:
+                return n
+        best = max(json_files, key=lambda n: zf.getinfo(n).file_size)
+        return best
+
+    def _pick_sqlite_member_from_zip(self, zf: zipfile.ZipFile) -> str | None:
+        sqlite_files = [
+            n
+            for n in zf.namelist()
+            if n.endswith((".db", ".sqlite")) and not n.endswith("/")
+        ]
+        if not sqlite_files:
+            return None
+        for n in sqlite_files:
+            if "simple" in n.lower():
+                return n
+        return max(sqlite_files, key=lambda n: zf.getinfo(n).file_size)
+
     def _parse_zip_bytes(self, body: bytes) -> Any:
         try:
             with zipfile.ZipFile(io.BytesIO(body)) as zf:
-                json_files = [n for n in zf.namelist() if n.endswith(".json")]
-                if json_files: return json.loads(zf.read(json_files[0]).decode("utf-8"))
-                sqlite_files = [n for n in zf.namelist() if n.endswith((".db", ".sqlite"))]
-                if sqlite_files: return self._parse_sqlite_bytes(zf.read(sqlite_files[0]))
-        except Exception: pass
+                json_member = self._pick_json_member_from_zip(zf)
+                if json_member:
+                    raw = zf.read(json_member).decode("utf-8", errors="replace")
+                    return json.loads(raw)
+                sqlite_member = self._pick_sqlite_member_from_zip(zf)
+                if sqlite_member:
+                    return self._parse_sqlite_bytes(zf.read(sqlite_member))
+        except Exception:
+            pass
         return None
+
+    def _unwrap_list_payload(self, data: Any, list_keys: tuple[str, ...]) -> list[Any] | None:
+        """Turn common QUL JSON envelopes into a list of records."""
+        if isinstance(data, list):
+            return data
+        if not isinstance(data, dict):
+            return None
+        fallback: list[Any] | None = None
+        for key in list_keys:
+            v = data.get(key)
+            if isinstance(v, list):
+                if len(v) > 0:
+                    return v
+                if fallback is None:
+                    fallback = v
+        return fallback
+
+    @staticmethod
+    def _resource_slug(detail_path: str) -> str:
+        segs = [s for s in (detail_path or "").strip().split("/") if s]
+        if not segs:
+            return "unknown"
+        slug = segs[-1]
+        if slug.lower() in ("none", "null", ""):
+            return segs[-2] if len(segs) >= 2 else "unknown"
+        return slug
+
+    @staticmethod
+    def _verse_key_from_record(it: dict[str, Any]) -> str | None:
+        vk = it.get("verse_key") or it.get("verseKey")
+        if vk:
+            return str(vk)
+        verse = it.get("verse")
+        if isinstance(verse, dict):
+            vk = verse.get("verse_key") or verse.get("verseKey")
+            if vk:
+                return str(vk)
+            ch = verse.get("chapter_id") or verse.get("chapter_number")
+            vn = verse.get("verse_number") or verse.get("number")
+            if ch is not None and vn is not None:
+                return f"{ch}:{vn}"
+        ch = it.get("chapter_id") or it.get("chapter_number") or it.get("surah_id")
+        vn = it.get("verse_number")
+        if vn is None and isinstance(it.get("verse"), int):
+            vn = it.get("verse")
+        if vn is None and isinstance(it.get("verse"), dict):
+            vn = it["verse"].get("verse_number")
+        if ch is not None and vn is not None:
+            return f"{ch}:{vn}"
+        return None
+
+    @staticmethod
+    def _translation_text_from_record(it: dict[str, Any]) -> str | None:
+        for key in (
+            "text",
+            "translation",
+            "translation_text",
+            "content",
+            "verse_translation",
+            "foot_note",
+            "footnote",
+        ):
+            val = it.get(key)
+            if isinstance(val, str) and val.strip():
+                return val
+        return None
+
+    @staticmethod
+    def _surah_key_from_tafsir_record(it: dict[str, Any]) -> int | str:
+        for key in ("chapter_id", "surah_number", "surah_id", "chapter_number"):
+            v = it.get(key)
+            if v is not None and v != "":
+                return v if isinstance(v, int) else v
+        verse = it.get("verse")
+        if isinstance(verse, dict):
+            for key in ("chapter_id", "surah_number", "chapter_number"):
+                v = verse.get(key)
+                if v is not None and v != "":
+                    return v if isinstance(v, int) else v
+        return 1
+
+    def _json_download_locator(self, page: Any) -> Any:
+        """QUL uses JS links (href '#_'); match visible label instead of href."""
+        return page.locator(
+            'a:has-text("simple.json"), a.btn:has-text("json"), '
+            'a[href$=".json"], a[href*="format=json"]'
+        ).first
+
+    def _sqlite_download_locator(self, page: Any) -> Any:
+        """Same pattern as JSON: label 'Download simple.sqlite', href often '#_'."""
+        return page.locator(
+            'a:has-text("simple.sqlite"), a:has-text(".sqlite"), '
+            'a.btn:has-text("sqlite"), a[href$=".sqlite"]'
+        ).first
 
     def print_summary(self):
         if self.stats: logger.info(f"[{self.name}] Summary: " + ", ".join(f"{k}={v}" for k, v in self.stats.items()))
@@ -324,27 +507,64 @@ class TranslationScraper(BaseScraper):
 
             logger.info(f"[{self.name}] Queued {len(detail_items)} resources for download.")
 
-            # 2. Iterate over collected links
-            for item in detail_items:
-                await self._scrape_resource(page, item["name"], item["path"])
+            async def _one(item: dict[str, str]) -> None:
+                async with self.session.worker_page() as wp:
+                    await self._scrape_resource(wp, item["name"], item["path"])
+
+            results = await asyncio.gather(
+                *(_one(item) for item in detail_items),
+                return_exceptions=True,
+            )
+            for item, res in zip(detail_items, results):
+                if isinstance(res, Exception):
+                    msg = f"{item.get('path')}: {res}"
+                    logger.error(f"[{self.name}] {msg}")
+                    self.errors.append(msg)
 
         finally: pass
         self.print_summary()
 
     async def _scrape_resource(self, page: Any, name: str, detail_path: str):
-        tid = detail_path.split("/")[-1]
+        tid = self._resource_slug(detail_path)
         detail_url = f"{self.config.base_url}{detail_path}"
         
         logger.info(f"[{self.name}] Navigating to detail page: {detail_url}")
         await self.goto(page, detail_url)
         
-        json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
+        json_btn = self._json_download_locator(page)
         data = await self.download_resource(page, json_btn, tag=f"tid-{tid}")
         if data:
-            items = data if isinstance(data, list) else data.get("translations", [])
-            out = {it.get("verse_key") or f"{it.get('chapter_id')}:{it.get('verse_number')}": {"text": it.get("text")} for it in items}
-            write_json(f"data/translations/{tid}.json", out)
-            self.stats["written"] += 1
+            items = self._unwrap_list_payload(
+                data,
+                (
+                    "translations",
+                    "translation_ayahs",
+                    "ayahs",
+                    "verses",
+                    "data",
+                    "records",
+                    "results",
+                ),
+            )
+            if isinstance(items, list) and items:
+                out: dict[str, Any] = {}
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    vkey = self._verse_key_from_record(it) or (
+                        f"{it.get('chapter_id', 1)}:{it.get('verse_number', 1)}"
+                    )
+                    out[str(vkey)] = {"text": self._translation_text_from_record(it)}
+                if out:
+                    write_json(f"data/translations/{tid}.json", out)
+                    await self.bump_stat("written")
+                else:
+                    logger.warning(f"[{self.name}] Parsed list but no rows for tid={tid}; saving raw payload.")
+                    write_json(f"data/translations/{tid}.json", data)
+                    await self.bump_stat("written")
+            else:
+                write_json(f"data/translations/{tid}.json", data)
+                await self.bump_stat("written")
 
 class TafsirScraper(BaseScraper):
     def __init__(self, session: QULSession): super().__init__(session, "tafsirs")
@@ -352,29 +572,71 @@ class TafsirScraper(BaseScraper):
         page = self.session.page
         try:
              await self.goto(page, f"{self.config.base_url}/resources/tafsir/")
-             count = await page.locator('tr:has(a[href*="/resources/tafsir/"])').count()
+             await page.wait_for_selector('table tr', timeout=15_000)
+             
+             # Extract links upfront for stability
+             rows = page.locator('tr:has(td:first-child a[href^="/resources/"])')
+             count = await rows.count()
+             
+             detail_items = []
              for i in range(count):
-                 await self._scrape_row(page, i)
+                 link = rows.nth(i).locator('td:first-child a').first
+                 text = (await link.inner_text()).strip()
+                 href = await link.get_attribute("href")
+                 if not href or "Download" in text: continue
+                 detail_items.append({"name": text, "path": href})
+
+             logger.info(f"[{self.name}] Found {len(detail_items)} tafsirs.")
+
+             async def _one(item: dict[str, str]) -> None:
+                 async with self.session.worker_page() as wp:
+                     await self._scrape_resource(wp, item["name"], item["path"])
+
+             results = await asyncio.gather(
+                 *(_one(item) for item in detail_items),
+                 return_exceptions=True,
+             )
+             for item, res in zip(detail_items, results):
+                 if isinstance(res, Exception):
+                     msg = f"{item.get('path')}: {res}"
+                     logger.error(f"[{self.name}] {msg}")
+                     self.errors.append(msg)
         finally: pass
         self.print_summary()
 
-    async def _scrape_row(self, page: Any, index: int):
-        await self.goto(page, f"{self.config.base_url}/resources/tafsir/")
-        row = page.locator('tr:has(a[href*="/resources/tafsir/"])').nth(index)
-        tid = await row.evaluate("r => r.dataset.id")
-        dl_a = row.locator('a[href$="/download"]').first
-        data = None
-        if await dl_a.count() > 0:
-             attr = await dl_a.get_attribute("href")
-             if attr: data = await self.fetch_http(page, urljoin(self.config.base_url, attr))
-        if not data: return
-        by_surah = {}
-        for it in (data if isinstance(data, list) else data.get("tafsirs", [])):
-            s = it.get("chapter_id") or it.get("surah_number") or 1
-            by_surah.setdefault(s, []).append(it)
-        for s, ayahs in by_surah.items():
-            write_json(f"data/tafsirs/{tid}/{s}.json", {"ayahs": ayahs})
-        self.stats["written"] += 1
+    async def _scrape_resource(self, page: Any, name: str, detail_path: str):
+        tid = self._resource_slug(detail_path)
+        logger.info(f"[{self.name}] Navigating to detail page: {name}")
+        await self.goto(page, f"{self.config.base_url}{detail_path}")
+        
+        json_btn = self._json_download_locator(page)
+        data = await self.download_resource(page, json_btn, tag=f"tafsir-{tid}")
+        
+        if data:
+            by_surah: dict[Any, list[Any]] = {}
+            items = self._unwrap_list_payload(
+                data,
+                ("tafsirs", "tafsir_ayahs", "ayahs", "verses", "data", "records", "results"),
+            )
+            if not isinstance(items, list):
+                write_json(f"data/tafsirs/{tid}/raw.json", data)
+                await self.bump_stat("written")
+                return
+            if len(items) == 0:
+                logger.warning(f"[{self.name}] Empty payload for tid={tid}; saving raw envelope.")
+                write_json(f"data/tafsirs/{tid}/raw.json", data)
+                await self.bump_stat("written")
+                return
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                s = self._surah_key_from_tafsir_record(it)
+                if s is None or s == "":
+                    s = 1
+                by_surah.setdefault(s, []).append(it)
+            for s, ayahs in by_surah.items():
+                write_json(f"data/tafsirs/{tid}/{s}.json", {"ayahs": ayahs})
+            await self.bump_stat("written")
 
 class QuranScriptScraper(BaseScraper):
     def __init__(self, session: QULSession): super().__init__(session, "quran-scripts")
@@ -397,29 +659,45 @@ class QuranScriptScraper(BaseScraper):
                  detail_items.append({"name": text, "path": href})
 
              logger.info(f"[{self.name}] Found {len(detail_items)} scripts.")
-             for item in detail_items:
-                 await self._scrape_resource(page, item["name"], item["path"])
+
+             async def _one(item: dict[str, str]) -> None:
+                 async with self.session.worker_page() as wp:
+                     await self._scrape_resource(wp, item["name"], item["path"])
+
+             results = await asyncio.gather(
+                 *(_one(item) for item in detail_items),
+                 return_exceptions=True,
+             )
+             for item, res in zip(detail_items, results):
+                 if isinstance(res, Exception):
+                     msg = f"{item.get('path')}: {res}"
+                     logger.error(f"[{self.name}] {msg}")
+                     self.errors.append(msg)
         finally: pass
         self.print_summary()
 
     async def _scrape_resource(self, page: Any, name: str, detail_path: str):
-        slug = detail_path.split("/")[-1]
+        slug = self._resource_slug(detail_path)
         logger.info(f"[{self.name}] Navigating to detail page for: {name}")
         await self.goto(page, f"{self.config.base_url}{detail_path}")
         
-        # Find direct JSON download button on detail page
-        json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
+        json_btn = self._json_download_locator(page)
         data = await self.download_resource(page, json_btn, tag=f"script-{slug}")
         if data:
-            # Handle different JSON structures
-            items = data
-            if isinstance(data, dict):
-                items = data.get("data") or data.get("verses") or data
-                
-            if isinstance(items, list):
-                out = {f"{it.get('chapter_id')}:{it.get('verse_number')}": it.get("text", "") for it in items}
+            items = self._unwrap_list_payload(data, ("verses", "ayahs", "data", "records", "results"))
+            if not isinstance(items, list):
+                items = []
+            if items:
+                out = {
+                    f"{it.get('chapter_id')}:{it.get('verse_number')}": it.get("text", "")
+                    for it in items
+                    if isinstance(it, dict)
+                }
                 write_json(f"data/quran/{slug or 'script-unknown'}.json", out)
-                self.stats["written"] += 1
+                await self.bump_stat("written")
+            else:
+                write_json(f"data/quran/{slug or 'script-unknown'}-raw.json", data)
+                await self.bump_stat("written")
 
 class BasicSingleFileScraper(BaseScraper):
     def __init__(self, session: QULSession, name: str, path: str, slug: str):
@@ -453,39 +731,61 @@ class BasicSingleFileScraper(BaseScraper):
                 
                 detail_items.append({"name": text, "path": href})
 
-            logger.info(f"[{self.name}] Found {len(detail_items)} valid resources.")
+            n_resources = len(detail_items)
+            logger.info(f"[{self.name}] Found {n_resources} valid resources.")
             
             if not detail_items:
                 if "users/sign_in" in page.url:
                     logger.error("Session lost, redirected to login.")
                 return
 
-            # 2. Iterate over collected links
-            for item in detail_items:
+            async def _one(item: dict[str, str]) -> None:
                 name = item["name"]
                 path = item["path"]
                 fname = name.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
-                
-                logger.info(f"[{self.name}] Navigating to detail page for: {name}")
-                await self.goto(page, f"{self.config.base_url}{path}")
-                
-                # Look for direct JSON download button
-                json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
-                if await json_btn.count() > 0:
-                    data = await self.download_resource(page, json_btn, tag=fname)
+                out_path = (
+                    self.path
+                    if n_resources == 1 and getattr(self, "path", "")
+                    else f"data/metadata/{fname}.json"
+                )
+                async with self.session.worker_page() as wp:
+                    logger.info(f"[{self.name}] Navigating to detail page for: {name}")
+                    await self.goto(wp, f"{self.config.base_url}{path}")
+                    json_btn = self._json_download_locator(wp)
+                    sqlite_btn = self._sqlite_download_locator(wp)
+                    data = None
+                    if await json_btn.count() > 0:
+                        data = await self.download_resource(wp, json_btn, tag=fname)
+                    if not data and await sqlite_btn.count() > 0:
+                        logger.info(f"[{self.name}] Using SQLite download for {name}")
+                        data = await self.download_resource(wp, sqlite_btn, tag=f"{fname}-sqlite")
                     if data:
-                        # QUL metadata JSONs are often either a direct list or have a top-level key.
-                        # We save the full object if it doesn't have a 'data' key, 
-                        # or if 'data' is what we want.
                         res_to_write = data
                         if isinstance(data, dict) and "data" in data:
                             res_to_write = data["data"]
-                            
-                        write_json(f"data/metadata/{fname}.json", res_to_write)
-                        self.stats["written"] += 1
-                        logger.info(f"[{self.name}] Wrote {fname}.json ({len(str(res_to_write))} chars approx)")
-                else:
-                    logger.warning(f"[{self.name}] No 'Download json' button on detail page for {name}")
+                        write_json(out_path, res_to_write)
+                        await self.bump_stat("written")
+                        logger.info(
+                            f"[{self.name}] Wrote {out_path} ({len(str(res_to_write))} chars approx)"
+                        )
+                    elif await json_btn.count() == 0 and await sqlite_btn.count() == 0:
+                        logger.warning(
+                            f"[{self.name}] No JSON or SQLite download on detail page for {name}"
+                        )
+                    else:
+                        logger.warning(
+                            f"[{self.name}] Download failed or parsed empty for {name}"
+                        )
+
+            results = await asyncio.gather(
+                *(_one(item) for item in detail_items),
+                return_exceptions=True,
+            )
+            for item, res in zip(detail_items, results):
+                if isinstance(res, Exception):
+                    msg = f"{item.get('path')}: {res}"
+                    logger.error(f"[{self.name}] {msg}")
+                    self.errors.append(msg)
         except Exception as e:
             logger.error(f"[{self.name}] Critical error in run: {e}")
         self.print_summary()
@@ -504,7 +804,13 @@ async def main():
     parser = argparse.ArgumentParser(description="Cleaned up QUL Scraper")
     parser.add_argument("--resources", default="all")
     parser.add_argument("--headless", default="true")
-    parser.add_argument("--contexts", type=int, default=1)
+    parser.add_argument(
+        "--contexts",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of authenticated browser contexts for parallel downloads (default: 5)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate script without running browser")
     args = parser.parse_args()
     
@@ -512,7 +818,9 @@ async def main():
         logger.info("Dry run successful: Configuration and factories validated.")
         return
 
-    config = QULConfig(headless=args.headless == "true", num_contexts=args.contexts)
+    config = QULConfig(headless=args.headless == "true")
+    if args.contexts is not None:
+        config.num_contexts = max(1, args.contexts)
     selected = list(SCRAPER_FACTORIES.keys()) if args.resources == "all" else [r.strip() for r in args.resources.split(",")]
     async with QULSession(config) as session:
         scrapers = [SCRAPER_FACTORIES[name](session) for name in selected if name in SCRAPER_FACTORIES]
