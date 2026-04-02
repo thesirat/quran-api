@@ -2,7 +2,8 @@
   "functions": {
     "api/[[...route]].ts": {
       "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "excludeFiles": "{data/**,node_modules/simdjson/jsonexamples/**,node_modules/simdjson/benchmark/**,node_modules/simdjson/tests/**}"
     }
   }
 }

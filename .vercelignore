@@ -1,3 +1,5 @@
+# Huge corpus — not bundled into the serverless function (load via DATA_BASE_URL / GitHub raw).
+data/
 scripts/
 .idea/
 *.py
