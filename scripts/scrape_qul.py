@@ -338,7 +338,7 @@ class TranslationScraper(BaseScraper):
         logger.info(f"[{self.name}] Navigating to detail page: {detail_url}")
         await self.goto(page, detail_url)
         
-        json_btn = page.locator('a.btn:has-text("Download json"), a[href*="format=json"]').first
+        json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
         data = await self.download_resource(page, json_btn, tag=f"tid-{tid}")
         if data:
             items = data if isinstance(data, list) else data.get("translations", [])
@@ -408,7 +408,7 @@ class QuranScriptScraper(BaseScraper):
         await self.goto(page, f"{self.config.base_url}{detail_path}")
         
         # Find direct JSON download button on detail page
-        json_btn = page.locator('a.btn:has-text("Download json"), a[href*="format=json"]').first
+        json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
         data = await self.download_resource(page, json_btn, tag=f"script-{slug}")
         if data:
             # Handle different JSON structures
@@ -418,7 +418,7 @@ class QuranScriptScraper(BaseScraper):
                 
             if isinstance(items, list):
                 out = {f"{it.get('chapter_id')}:{it.get('verse_number')}": it.get("text", "") for it in items}
-                write_json(f"data/quran/{slug or f'script-{index}'}.json", out)
+                write_json(f"data/quran/{slug or 'script-unknown'}.json", out)
                 self.stats["written"] += 1
 
 class BasicSingleFileScraper(BaseScraper):
@@ -470,7 +470,7 @@ class BasicSingleFileScraper(BaseScraper):
                 await self.goto(page, f"{self.config.base_url}{path}")
                 
                 # Look for direct JSON download button
-                json_btn = page.locator('a.btn:has-text("Download json"), a[href*="format=json"]').first
+                json_btn = page.locator('a.btn:has-text("json"), a[href$=".json"], a[href*="format=json"]').first
                 if await json_btn.count() > 0:
                     data = await self.download_resource(page, json_btn, tag=fname)
                     if data:
