@@ -7,9 +7,13 @@ contexts, and concurrent downloads with automatic retries and jittered navigatio
 
 Usage:
     python3 scripts/scrape_qul.py                      # Scrape all resources
-    python3 scripts/scrape_qul.py --resources translations,tafsirs
+    python3 scripts/scrape_qul.py --resources translations,tafsirs,recitation,fonts
     python3 scripts/scrape_qul.py --headless false     # Show browser for debugging
     python3 scripts/scrape_qul.py --contexts 6         # Change context pool size
+
+Resources include: translations, tafsirs, quran-scripts, quran-metadata, surah-info,
+topics, ayah-themes, similar-ayah, mutashabihat (phrases.json + phrase_verses.json from zip),
+mushaf-layout, transliteration, morphology, recitation (segments/surah JSON + audio zips), fonts (alias: font; zips unpacked to loose files).
 """
 from __future__ import annotations
 
@@ -82,6 +86,14 @@ def write_json(path: str, data: Any):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def write_bytes(path: str, data: bytes) -> None:
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(data)
 
 # ---------------------------------------------------------------------------
 # Session Manager
@@ -298,6 +310,179 @@ class BaseScraper:
             logger.error(f"Download error: {msg}")
             self.errors.append(msg)
             return None
+
+    async def download_raw_bytes(
+        self, page: Any, locator: Any, tag: str = ""
+    ) -> tuple[bytes, str] | None:
+        """Trigger a file download and return raw bytes plus Playwright suggested filename."""
+        try:
+            if await locator.count() == 0:
+                return None
+            async with page.expect_download(timeout=120_000) as dl_info:
+                try:
+                    await locator.scroll_into_view_if_needed(timeout=5_000)
+                except Exception:
+                    pass
+                await locator.click(timeout=30_000, force=True)
+            dl = await dl_info.value
+            name = dl.suggested_filename or "download.bin"
+            logger.info(f"[{tag or self.name}] Download started: {name}")
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+            await dl.save_as(str(tmp_path))
+            content = tmp_path.read_bytes()
+            tmp_path.unlink(missing_ok=True)
+            logger.info(f"[{tag or self.name}] Saved {len(content)} bytes ({name})")
+            return (content, name)
+        except Exception as exc:
+            msg = f"{tag or self.name}: {exc}"
+            logger.error(f"Download error: {msg}")
+            self.errors.append(msg)
+            return None
+
+    def _zip_extract_all_json(self, body: bytes) -> dict[str, Any]:
+        """Basename -> parsed JSON for every .json member (e.g. segments.json + surah.json)."""
+        out: dict[str, Any] = {}
+        try:
+            with zipfile.ZipFile(io.BytesIO(body)) as zf:
+                for n in zf.namelist():
+                    if not n.endswith(".json") or n.endswith("/"):
+                        continue
+                    base = n.replace("\\", "/").split("/")[-1]
+                    try:
+                        out[base] = json.loads(
+                            zf.read(n).decode("utf-8", errors="replace")
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return out
+
+    def _zip_has_non_json_files(self, body: bytes) -> bool:
+        try:
+            with zipfile.ZipFile(io.BytesIO(body)) as zf:
+                for n in zf.namelist():
+                    if n.endswith("/"):
+                        continue
+                    low = n.lower()
+                    if not low.endswith(".json"):
+                        return True
+        except Exception:
+            pass
+        return False
+
+    def _zip_extract_non_json_members(self, body: bytes, out_dir: str) -> int:
+        """Write every non-directory, non-.json zip member under out_dir (fonts, etc.). Skips __MACOSX."""
+        written = 0
+        counts: Counter[str] = Counter()
+        try:
+            with zipfile.ZipFile(io.BytesIO(body)) as zf:
+                for n in zf.namelist():
+                    if n.endswith("/"):
+                        continue
+                    norm = n.replace("\\", "/")
+                    if norm.startswith("__MACOSX/") or "/__MACOSX/" in norm:
+                        continue
+                    if norm.lower().endswith(".json"):
+                        continue
+                    base = norm.split("/")[-1]
+                    if not base or base == ".DS_Store":
+                        continue
+                    safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", base)
+                    if not safe:
+                        continue
+                    counts[safe] += 1
+                    c = counts[safe]
+                    if c == 1:
+                        fn = safe
+                    else:
+                        stem, ext = os.path.splitext(safe)
+                        fn = f"{stem}_{c}{ext}"
+                    try:
+                        data = zf.read(n)
+                    except Exception:
+                        continue
+                    write_bytes(os.path.join(out_dir, fn), data)
+                    written += 1
+        except Exception:
+            pass
+        return written
+
+    def save_qul_download(
+        self,
+        body: bytes,
+        suggested_name: str,
+        out_dir: str,
+        *,
+        unpack_zip_members: bool = False,
+    ) -> int:
+        """
+        Persist one downloaded asset under out_dir. Returns number of files written.
+        - Plain JSON / SQLite: one output file.
+        - Zip: extract every .json member to out_dir (segments.json, surah.json, …).
+          If unpack_zip_members (fonts): also extract all other files from the zip; no archives/ copy
+          unless non-JSON members exist but none could be extracted.
+          Otherwise: if the zip also holds non-JSON (e.g. audio), store the full archive under out_dir/archives/.
+        - Other binaries: out_dir/binaries/
+        """
+        os.makedirs(out_dir, exist_ok=True)
+        written = 0
+        name_lower = (suggested_name or "").lower()
+
+        if body.startswith(b"PK"):
+            json_members = self._zip_extract_all_json(body)
+            for base, parsed in json_members.items():
+                dest = os.path.join(out_dir, base)
+                write_json(dest, parsed)
+                written += 1
+            if unpack_zip_members:
+                n_bin = self._zip_extract_non_json_members(body, out_dir)
+                written += n_bin
+                if self._zip_has_non_json_files(body) and n_bin == 0:
+                    arch_name = (
+                        suggested_name
+                        if name_lower.endswith(".zip")
+                        else f"{Path(suggested_name).stem}.zip"
+                    )
+                    if not arch_name.lower().endswith(".zip"):
+                        arch_name += ".zip"
+                    write_bytes(os.path.join(out_dir, "archives", arch_name), body)
+                    written += 1
+            else:
+                if self._zip_has_non_json_files(body) or not json_members:
+                    arch_name = (
+                        suggested_name
+                        if name_lower.endswith(".zip")
+                        else f"{Path(suggested_name).stem}.zip"
+                    )
+                    if not arch_name.lower().endswith(".zip"):
+                        arch_name += ".zip"
+                    write_bytes(os.path.join(out_dir, "archives", arch_name), body)
+                    written += 1
+            return written
+
+        if body.startswith(b"SQLite format 3"):
+            rows = self._parse_sqlite_bytes(body)
+            stem = Path(suggested_name).stem or "data"
+            write_json(os.path.join(out_dir, f"{stem}.json"), rows if rows is not None else [])
+            return 1
+
+        try:
+            parsed = json.loads(body.decode("utf-8", errors="strict"))
+            stem = Path(suggested_name).stem or "data"
+            write_json(os.path.join(out_dir, f"{stem}.json"), parsed)
+            return 1
+        except Exception:
+            pass
+
+        safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", suggested_name or "download.bin")
+        write_bytes(os.path.join(out_dir, "binaries", safe), body)
+        return 1
+
+    def _detail_download_buttons(self, page: Any) -> Any:
+        """All file download controls on a QUL resource detail page (fonts, audio, JSON, …)."""
+        return page.locator("a.btn").filter(has_text=re.compile(r"download", re.I))
 
     async def fetch_http(self, page: Any, url: str, tag: str = "") -> Any:
         try:
@@ -700,10 +885,18 @@ class QuranScriptScraper(BaseScraper):
                 await self.bump_stat("written")
 
 class BasicSingleFileScraper(BaseScraper):
-    def __init__(self, session: QULSession, name: str, path: str, slug: str):
+    def __init__(
+        self,
+        session: QULSession,
+        name: str,
+        path: str,
+        slug: str,
+        multi_dir: str = "data/metadata",
+    ):
         super().__init__(session, name)
         self.path = path
         self.slug = slug
+        self.multi_dir = multi_dir.rstrip("/")
     async def run(self):
         page = self.session.page
         try:
@@ -746,7 +939,7 @@ class BasicSingleFileScraper(BaseScraper):
                 out_path = (
                     self.path
                     if n_resources == 1 and getattr(self, "path", "")
-                    else f"data/metadata/{fname}.json"
+                    else f"{self.multi_dir}/{fname}.json"
                 )
                 async with self.session.worker_page() as wp:
                     logger.info(f"[{self.name}] Navigating to detail page for: {name}")
@@ -790,6 +983,107 @@ class BasicSingleFileScraper(BaseScraper):
             logger.error(f"[{self.name}] Critical error in run: {e}")
         self.print_summary()
 
+
+class MultiAssetResourceScraper(BaseScraper):
+    """
+    Detail pages with many downloads (recitation timestamps + audio archives, font files, …).
+    Clicks every .btn that mentions Download and saves bytes (JSON/SQLite/zip/binaries).
+    """
+
+    def __init__(
+        self,
+        session: QULSession,
+        name: str,
+        list_slug: str,
+        out_root: str,
+        *,
+        unpack_zip_members: bool = False,
+    ):
+        super().__init__(session, name)
+        self.list_slug = list_slug
+        self.out_root = out_root.rstrip("/")
+        self.unpack_zip_members = unpack_zip_members
+
+    async def run(self):
+        page = self.session.page
+        try:
+            list_url = f"{self.config.base_url}/resources/{self.list_slug}/"
+            logger.info(f"[{self.name}] Listing {list_url}")
+            await self.goto(page, list_url)
+            await page.wait_for_selector("table tr", timeout=15_000)
+            needle = f"/resources/{self.list_slug}/"
+            rows = page.locator(f'tr:has(td:first-child a[href*="{needle}"])')
+            count = await rows.count()
+            detail_items: list[dict[str, str]] = []
+            for i in range(count):
+                link = rows.nth(i).locator("td:first-child a").first
+                text = (await link.inner_text()).strip()
+                href = await link.get_attribute("href")
+                if not href or "Download" in text:
+                    continue
+                detail_items.append({"name": text, "path": href})
+
+            logger.info(f"[{self.name}] Found {len(detail_items)} resources.")
+            if not detail_items:
+                if "users/sign_in" in page.url:
+                    logger.error("Session lost, redirected to login.")
+                return
+
+            async def _one(item: dict[str, str]) -> None:
+                tid = self._resource_slug(item["path"])
+                out_dir = f"{self.out_root}/{tid}"
+                async with self.session.worker_page() as wp:
+                    await self._download_all_for_detail(
+                        wp, item["name"], item["path"], out_dir
+                    )
+
+            results = await asyncio.gather(
+                *(_one(item) for item in detail_items),
+                return_exceptions=True,
+            )
+            for item, res in zip(detail_items, results):
+                if isinstance(res, Exception):
+                    msg = f"{item.get('path')}: {res}"
+                    logger.error(f"[{self.name}] {msg}")
+                    self.errors.append(msg)
+        finally:
+            pass
+        self.print_summary()
+
+    async def _download_all_for_detail(
+        self, page: Any, name: str, detail_path: str, out_dir: str
+    ) -> None:
+        url = f"{self.config.base_url}{detail_path}"
+        logger.info(f"[{self.name}] Detail: {name} -> {out_dir}")
+        await self.goto(page, url)
+        loc = self._detail_download_buttons(page)
+        n = await loc.count()
+        if n == 0:
+            logger.warning(f"[{self.name}] No download buttons for {name!r}")
+            return
+        for i in range(n):
+            btn = loc.nth(i)
+            du = await btn.get_attribute("data-url") or ""
+            if "sign_in" in du and "modal" in du:
+                label = (await btn.inner_text()).strip()
+                logger.warning(
+                    f"[{self.name}] Skipping gated control (not logged in?): {label!r}"
+                )
+                continue
+            raw = await self.download_raw_bytes(page, btn, tag=f"{self.name}-{i}")
+            if not raw:
+                continue
+            body, fname = raw
+            w = self.save_qul_download(
+                body,
+                fname,
+                out_dir,
+                unpack_zip_members=self.unpack_zip_members,
+            )
+            if w:
+                await self.bump_stat("written", w)
+
+
 SCRAPER_FACTORIES: dict[str, Callable[[QULSession], BaseScraper]] = {
     "translations": TranslationScraper,
     "tafsirs": TafsirScraper,
@@ -798,6 +1092,24 @@ SCRAPER_FACTORIES: dict[str, Callable[[QULSession], BaseScraper]] = {
     "surah-info": lambda s: BasicSingleFileScraper(s, "surah-info", "data/surah-info/data.json", "surah-info"),
     "topics": lambda s: BasicSingleFileScraper(s, "topics", "data/topics/data.json", "ayah-topics"),
     "ayah-themes": lambda s: BasicSingleFileScraper(s, "ayah-themes", "data/ayah-themes/data.json", "ayah-theme"),
+    "similar-ayah": lambda s: BasicSingleFileScraper(
+        s, "similar-ayah", "", "similar-ayah", "data/similar-ayah"
+    ),
+    "mutashabihat": lambda s: MultiAssetResourceScraper(
+        s, "mutashabihat", "mutashabihat", "data/mutashabihat"
+    ),
+    "mushaf-layout": lambda s: BasicSingleFileScraper(
+        s, "mushaf-layout", "", "mushaf-layout", "data/mushaf-layout"
+    ),
+    "transliteration": lambda s: BasicSingleFileScraper(
+        s, "transliteration", "", "transliteration", "data/transliteration"
+    ),
+    "recitation": lambda s: MultiAssetResourceScraper(
+        s, "recitation", "recitation", "data/recitations"
+    ),
+    "fonts": lambda s: MultiAssetResourceScraper(
+        s, "fonts", "font", "data/fonts", unpack_zip_members=True
+    ),
 }
 
 async def main():
@@ -821,7 +1133,18 @@ async def main():
     config = QULConfig(headless=args.headless == "true")
     if args.contexts is not None:
         config.num_contexts = max(1, args.contexts)
-    selected = list(SCRAPER_FACTORIES.keys()) if args.resources == "all" else [r.strip() for r in args.resources.split(",")]
+    _aliases = {"font": "fonts"}
+    if args.resources == "all":
+        selected = list(SCRAPER_FACTORIES.keys())
+    else:
+        selected = [
+            _aliases.get(r.strip(), r.strip())
+            for r in args.resources.split(",")
+            if r.strip()
+        ]
+    unknown = [n for n in selected if n not in SCRAPER_FACTORIES]
+    if unknown:
+        logger.warning("Unknown --resources entries (ignored): %s", ", ".join(unknown))
     async with QULSession(config) as session:
         scrapers = [SCRAPER_FACTORIES[name](session) for name in selected if name in SCRAPER_FACTORIES]
         for s in scrapers:
