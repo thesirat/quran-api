@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { fontMimeType, listFontResources, loadFontDetail, readFontFile } from "../data/loader.js";
+import { fontMimeType, listFontResources, loadFontDetail, readFontFile } from "../core/loader.js";
 
 const fonts = new Hono();
 

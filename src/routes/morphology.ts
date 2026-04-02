@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import {
   loadCorpusMorphology,
   loadQulMorphology,
-} from "../data/loader.js";
+} from "../core/loader.js";
 
 const morphology = new Hono();
 

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadTopics } from "../data/loader.js";
+import { loadTopics } from "../core/loader.js";
 
 const topics = new Hono();
 

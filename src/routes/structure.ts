@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadStructureMeta } from "../data/loader.js";
+import { loadStructureMeta } from "../core/loader.js";
 
 const structure = new Hono();
 

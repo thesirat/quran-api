@@ -7,12 +7,12 @@ import {
   loadWordTranslationCatalog,
   loadTransliterationCatalog,
   loadAyahThemes,
-} from "../data/loader.js";
+} from "../core/loader.js";
 import type {
-  RecitationEntry,
-  TafsirCatalogEntry,
   TranslationCatalogEntry,
-} from "../data/types.js";
+  TafsirCatalogEntry,
+  RecitationEntry,
+} from "../core/types.js";
 
 const catalog = new Hono();
 

@@ -14,7 +14,7 @@ import { mushaf } from "./routes/mushaf.js";
 import { structure } from "./routes/structure.js";
 import { similarAyahs } from "./routes/similar-ayahs.js";
 import { fonts } from "./routes/fonts.js";
-import { getDataLoadingMeta } from "./data/loader.js";
+import { getDataLoadingMeta } from "./core/loader.js";
 
 const app = new Hono();
 

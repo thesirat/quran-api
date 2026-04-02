@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, loadMushafPages, VALID_SCRIPTS, type ScriptName } from "../data/loader.js";
+import { loadVerseMeta, loadScript, loadMushafPages, VALID_SCRIPTS, type ScriptName } from "../core/loader.js";
 
 const mushaf = new Hono();
 
@@ -34,7 +34,7 @@ mushaf.get("/mushaf/:n", async (c) => {
     return c.json({ status: 404, type: "not_found", title: `No mushaf data for page ${n}` }, 404);
   }
 
-  const verseKeys = (Object.entries(verseMeta) as [string, import("../data/types.js").VerseMeta][])
+  const verseKeys = (Object.entries(verseMeta) as [string, import("../core/types.js").VerseMeta][])
     .filter(([, v]) => v.page === n)
     .sort(([a], [b]) => {
       const [as_, aa] = a.split(":").map(Number);

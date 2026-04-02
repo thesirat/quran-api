@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadMutashabihat } from "../data/loader.js";
+import { loadMutashabihat } from "../core/loader.js";
 
 const mutashabihat = new Hono();
 

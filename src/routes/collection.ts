@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName } from "../data/loader.js";
-import type { VerseMeta } from "../data/types.js";
+import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName } from "../core/loader.js";
+import type { VerseMeta } from "../core/types.js";
 
 const collection = new Hono();
 

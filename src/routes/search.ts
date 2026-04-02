@@ -3,7 +3,7 @@ import {
   loadRootsIndex,
   loadLemmasIndex,
   loadWordsArabic,
-} from "../data/loader.js";
+} from "../core/loader.js";
 
 const search = new Hono();
 

@@ -14,8 +14,8 @@ import {
   loadAudioSegments,
   loadTransliteration,
   loadAyahThemes,
-} from "../data/loader.js";
-import type { VerseData, WordData, TranslationEntry } from "../data/types.js";
+} from "../core/loader.js";
+import type { VerseData, WordData, TranslationEntry } from "../core/types.js";
 
 const verse = new Hono();
 

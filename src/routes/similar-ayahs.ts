@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { loadSimilarAyahs } from "../data/loader.js";
+import { loadSimilarAyahs } from "../core/loader.js";
 
 const similarAyahs = new Hono();
 

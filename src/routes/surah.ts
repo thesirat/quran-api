@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../data/loader.js";
-import { SURAH_NAMES } from "../data/surah-static.js";
-import type { SurahMeta } from "../data/types.js";
+import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../core/loader.js";
+import { SURAH_NAMES } from "../core/surah-static.js";
+import type { SurahMeta } from "../core/types.js";
 
 const surah = new Hono();
 
