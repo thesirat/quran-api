@@ -79,6 +79,8 @@ jobs:
             echo "--- Syncing Morphology ---"
             python3 scripts/sync_morphology.py
           fi
+          echo "--- Font catalog (for DATA_BASE_URL / GitHub raw) ---"
+          python3 scripts/generate_font_catalog.py
 
       - name: Show data tree status
         run: git status -sb data/ || true

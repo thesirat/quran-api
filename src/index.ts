@@ -14,6 +14,7 @@ import { mushaf } from "./routes/mushaf.js";
 import { structure } from "./routes/structure.js";
 import { similarAyahs } from "./routes/similar-ayahs.js";
 import { fonts } from "./routes/fonts.js";
+import { getDataLoadingMeta } from "./data/loader.js";
 
 const app = new Hono();
 
@@ -30,6 +31,7 @@ app.get("/", (c) =>
     version: "1.0.0",
     docs: "https://github.com/your-repo/quran-api",
     sources: ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)"],
+    data: getDataLoadingMeta(),
     endpoints: {
       // Verse
       verse: "/v1/verse/:key",

@@ -253,6 +253,13 @@ export interface FontManifest {
   files?: string[];
 }
 
+/** data/fonts/catalog.json — required when using DATA_BASE_URL (no directory listing over HTTP). */
+export interface FontCatalogEntry {
+  id: string;
+  files: string[];
+  detail_url?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Transliteration
 // ---------------------------------------------------------------------------

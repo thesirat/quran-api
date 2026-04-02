@@ -10,25 +10,134 @@ const lazyCache = new Map<string, Record<string, unknown>>();
 
 const ROOT = process.cwd();
 
+/** When set (e.g. GitHub raw: https://raw.githubusercontent.com/o/r/abc123), data is fetched over HTTP instead of fs. */
+function dataBaseUrl(): string | undefined {
+  const u = process.env.DATA_BASE_URL?.trim();
+  return u || undefined;
+}
+
+function isRemoteData(): boolean {
+  return !!dataBaseUrl();
+}
+
+/** Runtime mode for observability (e.g. GET /). */
+export function getDataLoadingMeta(): { mode: "local" | "remote"; baseUrl: string | null } {
+  const b = dataBaseUrl();
+  return { mode: b ? "remote" : "local", baseUrl: b ?? null };
+}
+
+function assertSafeDataRelPath(relPath: string): void {
+  if (path.isAbsolute(relPath)) {
+    throw new Error(`Invalid data path (absolute): ${relPath}`);
+  }
+  const norm = path.posix.normalize(relPath.replace(/\\/g, "/"));
+  if (norm.startsWith("../") || norm === ".." || norm.includes("/../")) {
+    throw new Error(`Invalid data path: ${relPath}`);
+  }
+  if (norm.startsWith("/")) {
+    throw new Error(`Invalid data path: ${relPath}`);
+  }
+  if (!norm.startsWith("data/") && norm !== "data") {
+    throw new Error(`Invalid data path (must be under data/): ${relPath}`);
+  }
+}
+
+/** Single path segment for dynamic resources (translations id, lang codes, etc.). */
+function assertSafeResourceSegment(segment: string, label: string): void {
+  if (segment.length === 0 || segment.length > 240) {
+    throw new Error(`Invalid ${label}`);
+  }
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(segment)) {
+    throw new Error(`Invalid ${label}`);
+  }
+}
+
+function assertTafsirSurahPathSegment(surah: number): void {
+  if (!Number.isInteger(surah) || surah < 1 || surah > 114) {
+    throw new Error("Invalid surah number for tafsir resource path");
+  }
+}
+
+function isNotFoundError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as NodeJS.ErrnoException & { status?: number };
+  if (err.code === "ENOENT") return true;
+  if (err.status === 404) return true;
+  const msg = err instanceof Error ? err.message : "";
+  if (msg.startsWith("Not found: http")) return true;
+  return false;
+}
+
+function joinDataUrl(relPath: string): string {
+  assertSafeDataRelPath(relPath);
+  const base = dataBaseUrl()!.replace(/\/$/, "");
+  const p = relPath.split(/[/\\]/).filter(Boolean).join("/");
+  return `${base}/${p}`;
+}
+
+async function readDataTextFromRemote(relPath: string): Promise<string> {
+  const url = joinDataUrl(relPath);
+  const res = await fetch(url, {
+    headers: { "User-Agent": "quran-api/1.0 (DATA_BASE_URL fetch)" },
+  });
+  if (res.status === 404) {
+    throw Object.assign(new Error(`Not found: ${url}`), { code: "ENOENT" });
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+  }
+  return await res.text();
+}
+
+async function tryReadDataTextFromRemote(relPath: string): Promise<string | undefined> {
+  try {
+    return await readDataTextFromRemote(relPath);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    if (err.code === "ENOENT") return undefined;
+    throw e;
+  }
+}
+
+async function readDataBufferFromRemote(relPath: string): Promise<Buffer | null> {
+  const url = joinDataUrl(relPath);
+  const res = await fetch(url, {
+    headers: { "User-Agent": "quran-api/1.0 (DATA_BASE_URL fetch)" },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+  }
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab);
+}
+
 /**
  * Read a JSON file from `data/` (relative to project root) and cache it.
  * Subsequent calls for the same path return the cached value synchronously.
  */
 export async function loadJson<T>(relPath: string): Promise<T> {
+  assertSafeDataRelPath(relPath);
   if (cache.has(relPath)) return cache.get(relPath) as T;
-  const abs = path.join(ROOT, relPath);
-  const raw = await fs.readFile(abs, "utf-8");
+  let raw: string;
+  if (isRemoteData()) {
+    raw = await readDataTextFromRemote(relPath);
+  } else {
+    const abs = path.join(ROOT, relPath);
+    raw = await fs.readFile(abs, "utf-8");
+  }
   const value = JSON.parse(raw) as T;
   cache.set(relPath, value);
   return value;
 }
 
-/** Load and return, or return undefined if file doesn't exist. */
+/** Load and return, or return undefined only if the resource is missing (404 / ENOENT). */
 export async function tryLoadJson<T>(relPath: string): Promise<T | undefined> {
   try {
     return await loadJson<T>(relPath);
-  } catch {
-    return undefined;
+  } catch (e) {
+    if (isNotFoundError(e)) return undefined;
+    throw e;
   }
 }
 
@@ -38,9 +147,15 @@ export async function tryLoadJson<T>(relPath: string): Promise<T | undefined> {
  * The returned object is a Proxy — property access drives the lazy extraction.
  */
 export async function loadJsonLazy<T extends Record<string, unknown>>(relPath: string): Promise<T> {
+  assertSafeDataRelPath(relPath);
   if (lazyCache.has(relPath)) return lazyCache.get(relPath) as T;
-  const abs = path.join(ROOT, relPath);
-  const raw = await fs.readFile(abs, "utf-8");
+  let raw: string;
+  if (isRemoteData()) {
+    raw = await readDataTextFromRemote(relPath);
+  } else {
+    const abs = path.join(ROOT, relPath);
+    raw = await fs.readFile(abs, "utf-8");
+  }
   const tape = simdjson.lazyParse(raw);
   const keyCache = new Map<string, unknown>();
   const proxy = new Proxy({} as T, {
@@ -60,12 +175,13 @@ export async function loadJsonLazy<T extends Record<string, unknown>>(relPath: s
   return proxy;
 }
 
-/** loadJsonLazy variant that returns undefined if the file doesn't exist. */
+/** loadJsonLazy variant that returns undefined only if the resource is missing. */
 export async function tryLoadJsonLazy<T extends Record<string, unknown>>(relPath: string): Promise<T | undefined> {
   try {
     return await loadJsonLazy<T>(relPath);
-  } catch {
-    return undefined;
+  } catch (e) {
+    if (isNotFoundError(e)) return undefined;
+    throw e;
   }
 }
 
@@ -98,6 +214,7 @@ import type {
   SimilarAyahPair,
   FontListItem,
   FontManifest,
+  FontCatalogEntry,
 } from "./types.js";
 import { buildStructureFromVerseMeta } from "./structure-from-verses.js";
 
@@ -116,8 +233,10 @@ export async function loadScript(script: ScriptName): Promise<Record<string, str
 export const loadWordsArabic = () =>
   loadJson<Record<string, Omit<WordData, "key">>>("data/words/arabic.json");
 
-export const loadWordTranslation = (lang: string) =>
-  tryLoadJson<Record<string, string>>(`data/words/translations/${lang}.json`);
+export const loadWordTranslation = (lang: string) => {
+  assertSafeResourceSegment(lang, "word translation lang");
+  return tryLoadJson<Record<string, string>>(`data/words/translations/${lang}.json`);
+};
 
 export const loadCorpusMorphology = () =>
   loadJsonLazy<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
@@ -134,14 +253,21 @@ export const loadLemmasIndex = () =>
 export const loadPauseMarks = () =>
   tryLoadJson<Record<string, string>>("data/morphology/pause-marks.json");
 
-export const loadTranslation = (id: number | string) =>
-  tryLoadJson<Record<string, TranslationEntry>>(`data/translations/${id}.json`);
+export const loadTranslation = (id: number | string) => {
+  const seg = typeof id === "number" ? String(id) : id;
+  assertSafeResourceSegment(seg, "translation id");
+  return tryLoadJson<Record<string, TranslationEntry>>(`data/translations/${seg}.json`);
+};
 
 export const loadTranslationCatalog = () =>
   loadJson<TranslationCatalogEntry[]>("data/translations/index.json");
 
-export const loadTafsirChapter = (id: number | string, surah: number) =>
-  tryLoadJson<TafsirChapter>(`data/tafsirs/${id}/${surah}.json`);
+export const loadTafsirChapter = (id: number | string, surah: number) => {
+  const idSeg = typeof id === "number" ? String(id) : id;
+  assertSafeResourceSegment(idSeg, "tafsir id");
+  assertTafsirSurahPathSegment(surah);
+  return tryLoadJson<TafsirChapter>(`data/tafsirs/${idSeg}/${surah}.json`);
+};
 
 export const loadTafsirCatalog = () =>
   loadJson<TafsirCatalogEntry[]>("data/tafsirs/index.json");
@@ -150,8 +276,11 @@ export const loadRecitations = () =>
   loadJson<RecitationEntry[]>("data/audio/recitations.json");
 
 // Each segment entry is [word_position, start_ms, duration_ms, end_ms?]
-export const loadAudioSegments = (recitationId: number | string) =>
-  tryLoadJson<Record<string, number[][]>>(`data/audio/segments/${recitationId}.json`);
+export const loadAudioSegments = (recitationId: number | string) => {
+  const seg = typeof recitationId === "number" ? String(recitationId) : recitationId;
+  assertSafeResourceSegment(seg, "recitation id");
+  return tryLoadJson<Record<string, number[][]>>(`data/audio/segments/${seg}.json`);
+};
 
 export const loadTopics = () =>
   loadJson<Record<string, TopicEntry>>("data/topics/data.json");
@@ -174,14 +303,18 @@ export const loadWordTranslationCatalog = () =>
 export const loadTransliterationCatalog = () =>
   tryLoadJson<TransliterationCatalogEntry[]>("data/transliteration/index.json");
 
-export const loadTransliteration = (lang: string) =>
-  tryLoadJson<Record<string, string>>(`data/transliteration/${lang}.json`);
+export const loadTransliteration = (lang: string) => {
+  assertSafeResourceSegment(lang, "transliteration lang");
+  return tryLoadJson<Record<string, string>>(`data/transliteration/${lang}.json`);
+};
 
 export const loadSurahInfoCatalog = () =>
   tryLoadJson<SurahInfoCatalogEntry[]>("data/surah-info/index.json");
 
-export const loadSurahInfo = (lang: string) =>
-  tryLoadJson<Record<string, SurahInfo>>(`data/surah-info/${lang}.json`);
+export const loadSurahInfo = (lang: string) => {
+  assertSafeResourceSegment(lang, "surah info lang");
+  return tryLoadJson<Record<string, SurahInfo>>(`data/surah-info/${lang}.json`);
+};
 
 export const loadSimilarAyahs = () =>
   tryLoadJson<SimilarAyahPair[]>("data/similar-ayahs/data.json");
@@ -195,16 +328,47 @@ export const loadAyahThemes = () =>
 
 const fontsRoot = () => path.join(ROOT, "data", "fonts");
 
-/** Safe single-segment filename under a font directory (no path traversal). */
+/** Safe relative path under a font directory (POSIX segments, no traversal). */
 export function assertSafeFontFilename(name: string): string | null {
   if (!name || name === "." || name === "..") return null;
-  if (name.includes("/") || name.includes("\\") || name.includes("\0")) return null;
-  if (path.basename(name) !== name) return null;
-  return name;
+  if (name.includes("\0") || name.includes("\\")) return null;
+  const normalized = name.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  for (const p of parts) {
+    if (p === "." || p === ".." || p.includes("/")) return null;
+  }
+  return normalized;
+}
+
+async function collectFontFilesLocal(fontId: string): Promise<string[]> {
+  const base = path.join(fontsRoot(), fontId);
+  const out: string[] = [];
+  async function walk(current: string, relFromFont: string): Promise<void> {
+    let ents: Dirent[];
+    try {
+      ents = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of ents) {
+      const full = path.join(current, ent.name);
+      const rel = relFromFont ? `${relFromFont}/${ent.name}` : ent.name;
+      if (ent.isDirectory()) {
+        await walk(full, rel);
+      } else if (ent.isFile()) {
+        if (full === path.join(base, "manifest.json")) continue;
+        out.push(rel.split(path.sep).join("/"));
+      }
+    }
+  }
+  await walk(base, "");
+  return out.sort();
 }
 
 export function fontMimeType(filename: string): string {
-  const lower = filename.toLowerCase();
+  const leaf = filename.includes("/") ? (filename.split("/").pop() ?? filename) : filename;
+  const lower = leaf.toLowerCase();
   if (lower.endsWith(".woff2")) return "font/woff2";
   if (lower.endsWith(".woff")) return "font/woff";
   if (lower.endsWith(".ttf")) return "font/ttf";
@@ -216,16 +380,40 @@ export function fontMimeType(filename: string): string {
 }
 
 async function readFontManifestFile(fontId: string): Promise<FontManifest | undefined> {
+  const rel = path.posix.join("data", "fonts", fontId, "manifest.json");
   try {
-    const raw = await fs.readFile(path.join(fontsRoot(), fontId, "manifest.json"), "utf-8");
+    let raw: string;
+    if (isRemoteData()) {
+      const got = await tryReadDataTextFromRemote(rel);
+      if (got === undefined) return undefined;
+      raw = got;
+    } else {
+      raw = await fs.readFile(path.join(fontsRoot(), fontId, "manifest.json"), "utf-8");
+    }
     return JSON.parse(raw) as FontManifest;
   } catch {
     return undefined;
   }
 }
 
+async function loadFontCatalog(): Promise<FontCatalogEntry[] | undefined> {
+  return tryLoadJson<FontCatalogEntry[]>("data/fonts/catalog.json");
+}
+
 /** List font resource ids with file counts (from manifest or directory scan). */
 export async function listFontResources(): Promise<FontListItem[]> {
+  if (isRemoteData()) {
+    const catalog = await loadFontCatalog();
+    if (!catalog?.length) return [];
+    return catalog
+      .map((e) => ({
+        id: e.id,
+        file_count: e.files.length,
+        detail_url: e.detail_url,
+      }))
+      .sort((a, b) => Number(a.id) - Number(b.id));
+  }
+
   const root = fontsRoot();
   let entries: Dirent[];
   try {
@@ -241,12 +429,7 @@ export async function listFontResources(): Promise<FontListItem[]> {
     const manifest = await readFontManifestFile(id);
     let files = manifest?.files?.filter(Boolean) ?? [];
     if (files.length === 0) {
-      try {
-        const names = await fs.readdir(path.join(root, id));
-        files = names.filter((n) => n !== "manifest.json");
-      } catch {
-        files = [];
-      }
+      files = await collectFontFilesLocal(id);
     }
     rows.push({
       id,
@@ -261,6 +444,25 @@ export async function listFontResources(): Promise<FontListItem[]> {
 /** Full manifest + file list for one font id, or null if missing. */
 export async function loadFontDetail(fontId: string): Promise<{ id: string; detail_url?: string; files: string[] } | null> {
   if (!/^\d+$/.test(fontId)) return null;
+
+  if (isRemoteData()) {
+    const manifest = await readFontManifestFile(fontId);
+    const catalog = await loadFontCatalog();
+    const entry = catalog?.find((e) => e.id === fontId);
+    let files = manifest?.files?.filter(Boolean) ?? [];
+    if (files.length === 0 && entry) {
+      files = [...entry.files].sort();
+    } else {
+      files = [...files].sort();
+    }
+    if (!manifest && !entry) return null;
+    return {
+      id: fontId,
+      detail_url: manifest?.detail_url ?? entry?.detail_url,
+      files,
+    };
+  }
+
   const dir = path.join(fontsRoot(), fontId);
   try {
     const st = await fs.stat(dir);
@@ -272,12 +474,7 @@ export async function loadFontDetail(fontId: string): Promise<{ id: string; deta
   const manifest = await readFontManifestFile(fontId);
   let files = manifest?.files?.filter(Boolean) ?? [];
   if (files.length === 0) {
-    try {
-      const names = await fs.readdir(dir);
-      files = names.filter((n) => n !== "manifest.json").sort();
-    } catch {
-      files = [];
-    }
+    files = await collectFontFilesLocal(fontId);
   } else {
     files = [...files].sort();
   }
@@ -295,8 +492,14 @@ export async function readFontFile(fontId: string, filename: string): Promise<Bu
   const safeName = assertSafeFontFilename(filename);
   if (!safeName) return null;
 
+  const rel = path.posix.join("data", "fonts", fontId, ...safeName.split("/"));
+
+  if (isRemoteData()) {
+    return readDataBufferFromRemote(rel);
+  }
+
   const dir = path.resolve(path.join(fontsRoot(), fontId));
-  const full = path.resolve(path.join(dir, safeName));
+  const full = path.resolve(path.join(dir, ...safeName.split("/")));
   if (!full.startsWith(dir + path.sep) && full !== dir) return null;
 
   try {

@@ -19,10 +19,18 @@ fonts.get("/:id", async (c) => {
   return c.json({ data: detail });
 });
 
-// GET /v1/fonts/:id/:filename — binary asset (basename only, no subpaths)
+function decodeFontPathParam(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+// GET /v1/fonts/:id/:filename — font file; nested paths use one segment with %2F (e.g. binaries%2Fligatures.json.bz2)
 fonts.get("/:id/:filename", async (c) => {
   const id = c.req.param("id");
-  const filename = c.req.param("filename");
+  const filename = decodeFontPathParam(c.req.param("filename"));
   const buf = await readFontFile(id, filename);
   if (!buf) {
     return c.json(
