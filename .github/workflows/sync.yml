@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "Comma-separated sources to sync: qul-scrape, morphology (or 'all')"
+        description: "Comma-separated: 'all', 'qul-scrape' (full QUL), 'morphology' (corpus script), and/or scrape_qul keys (e.g. recitation,transliteration,similar-ayah,mushaf-layout)"
         required: false
         default: "all"
 
@@ -27,8 +27,25 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Decide Playwright / QUL scrape
+        id: sync_plan
+        run: |
+          INPUT="${{ github.event.inputs.sources || 'all' }}"
+          INPUT_NOSPACES="${INPUT//[[:space:]]/}"
+          echo "input=$INPUT_NOSPACES" >> "$GITHUB_OUTPUT"
+          if [[ "$INPUT_NOSPACES" == "all" || "$INPUT_NOSPACES" == *"qul-scrape"* ]]; then
+            echo "qul_mode=all" >> "$GITHUB_OUTPUT"
+            echo "needs_playwright=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$INPUT_NOSPACES" == "morphology" ]]; then
+            echo "qul_mode=skip" >> "$GITHUB_OUTPUT"
+            echo "needs_playwright=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "qul_mode=list" >> "$GITHUB_OUTPUT"
+            echo "needs_playwright=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Cache Playwright browsers
-        if: ${{ contains(github.event.inputs.sources || 'all', 'qul-scrape') || (github.event.inputs.sources || 'all') == 'all' }}
+        if: steps.sync_plan.outputs.needs_playwright == 'true'
         uses: actions/cache@v4
         id: playwright-cache
         with:
@@ -36,7 +53,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}-chromium
 
       - name: Install Playwright browsers
-        if: ${{ contains(github.event.inputs.sources || 'all', 'qul-scrape') || (github.event.inputs.sources || 'all') == 'all' }}
+        if: steps.sync_plan.outputs.needs_playwright == 'true'
         run: |
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
             playwright install chromium --with-deps
@@ -48,11 +65,15 @@ jobs:
           QUL_PASSWORD: ${{ secrets.QUL_PASSWORD }}
           PYTHONUNBUFFERED: "1"
         run: |
-          INPUT="${{ github.event.inputs.sources || 'all' }}"
-          echo "Syncing: $INPUT"
-          if [[ "$INPUT" == "all" || "$INPUT" == *"qul-scrape"* ]]; then
+          INPUT="${{ steps.sync_plan.outputs.input }}"
+          QUL_MODE="${{ steps.sync_plan.outputs.qul_mode }}"
+          echo "Syncing: $INPUT (qul_mode=$QUL_MODE)"
+          if [[ "$QUL_MODE" == "all" ]]; then
             echo "--- Scraping QUL (Playwright) ---"
             python3 scripts/scrape_qul.py --resources all
+          elif [[ "$QUL_MODE" == "list" ]]; then
+            echo "--- Scraping QUL (Playwright) ---"
+            python3 scripts/scrape_qul.py --resources "$INPUT"
           fi
           if [[ "$INPUT" == "all" || "$INPUT" == *"morphology"* ]]; then
             echo "--- Syncing Morphology ---"
