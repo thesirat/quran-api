@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { loadTopics } from "../core/loader.js";
+import type { TopicEntry } from "../core/types.js";
 
 const topics = new Hono();
 
@@ -10,7 +11,7 @@ const topics = new Hono();
 topics.get("/", async (c) => {
   const data = await loadTopics();
   const nameFilter = c.req.query("name")?.toLowerCase();
-  const result = Object.entries(data)
+  const result = (Object.entries(data) as [string, TopicEntry][])
     .filter(([, t]) => !nameFilter || t.name?.toLowerCase().includes(nameFilter))
     .map(([slug, t]) => ({
       slug,

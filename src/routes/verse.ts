@@ -15,7 +15,7 @@ import {
   loadTransliteration,
   loadAyahThemes,
 } from "../core/loader.js";
-import type { VerseData, WordData, TranslationEntry } from "../core/types.js";
+import type { VerseData, WordData, TranslationEntry, TafsirAyah, RecitationEntry } from "../core/types.js";
 
 const verse = new Hono();
 
@@ -88,7 +88,7 @@ verse.get("/:key", async (c) => {
   // Optional: embed one tafsir
   if (q.tafsir) {
     const chapter = await loadTafsirChapter(q.tafsir, surah);
-    const ayahEntry = chapter?.ayahs.find((a) => a.ayah === ayah);
+    const ayahEntry = chapter?.ayahs.find((a: TafsirAyah) => a.ayah === ayah);
     if (ayahEntry) {
       (result as unknown as Record<string, unknown>).tafsir = { id: q.tafsir, text: ayahEntry.text };
     }
@@ -170,7 +170,7 @@ verse.get("/:key/tafsir/:id", async (c) => {
   const chapter = await loadTafsirChapter(tafsirId, surah);
   if (!chapter) return c.json({ status: 404, type: "not_found", title: "Tafsir not found", detail: `Tafsir ${tafsirId} has no data for surah ${surah}` }, 404);
 
-  const entry = chapter.ayahs.find((a) => a.ayah === ayah);
+  const entry = chapter.ayahs.find((a: TafsirAyah) => a.ayah === ayah);
   if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir entry not found" }, 404);
 
   return c.json({ data: entry });
@@ -190,7 +190,7 @@ verse.get("/:key/audio", async (c) => {
   const ayahPad = String(ayah).padStart(3, "0");
   const filename = `${surahPad}${ayahPad}.mp3`;
 
-  const result = recitations.map((r) => ({
+  const result = recitations.map((r: RecitationEntry) => ({
     id: r.id,
     name: r.name,
     reciter: r.reciter,

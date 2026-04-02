@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../core/loader.js";
 import { SURAH_NAMES } from "../core/surah-static.js";
-import type { SurahMeta } from "../core/types.js";
+import type { SurahMeta, TafsirCatalogEntry, SurahInfoCatalogEntry } from "../core/types.js";
 
 const surah = new Hono();
 
@@ -134,7 +134,7 @@ surah.get("/:n/tafsir/:id", async (c) => {
     return c.json({ status: 404, type: "not_found", title: "Tafsir not found", detail: `Tafsir ${tafsirId} has no data for surah ${n}` }, 404);
   }
 
-  const meta = catalog.find((t) => String(t.id) === tafsirId);
+  const meta = catalog.find((t: TafsirCatalogEntry) => String(t.id) === tafsirId);
   return c.json({
     data: {
       tafsir: meta ?? { id: tafsirId },
@@ -159,7 +159,7 @@ surah.get("/:n/info", async (c) => {
   const catalog = await loadSurahInfoCatalog();
   const data = await loadSurahInfo(lang);
   if (!data) {
-    const available = catalog ? catalog.map((e) => e.lang) : [];
+    const available = catalog ? catalog.map((e: SurahInfoCatalogEntry) => e.lang) : [];
     return c.json(
       {
         status: 503,

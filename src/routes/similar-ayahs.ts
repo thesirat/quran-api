@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { loadSimilarAyahs } from "../core/loader.js";
+import type { SimilarAyahPair } from "../core/types.js";
 
 const similarAyahs = new Hono();
 
@@ -29,14 +30,14 @@ similarAyahs.get("/", async (c) => {
 similarAyahs.get("/:key", async (c) => {
   const key = c.req.param("key");
   const parts = key.split(":");
-  if (parts.length !== 2 || parts.some((p) => !Number.isInteger(Number(p)))) {
+  if (parts.length !== 2 || parts.some((p: string) => !Number.isInteger(Number(p)))) {
     return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
   }
 
   const data = await loadSimilarAyahs();
   if (!data) return c.json(DATA_UNAVAILABLE, 503);
 
-  const matches = data.filter((p) => p.verse_key === key || p.similar_key === key);
+  const matches = data.filter((p: SimilarAyahPair) => p.verse_key === key || p.similar_key === key);
   return c.json({ data: matches, meta: { verse_key: key, total: matches.length } });
 });
 
