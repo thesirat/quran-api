@@ -1,0 +1,572 @@
+{
+  "1": {
+    "surah_number": 1,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//001.mp3",
+    "duration": 45
+  },
+  "2": {
+    "surah_number": 2,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//002.mp3",
+    "duration": 7080
+  },
+  "3": {
+    "surah_number": 3,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//003.mp3",
+    "duration": 4504
+  },
+  "4": {
+    "surah_number": 4,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//004.mp3",
+    "duration": 4530
+  },
+  "5": {
+    "surah_number": 5,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//005.mp3",
+    "duration": 2897
+  },
+  "6": {
+    "surah_number": 6,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//006.mp3",
+    "duration": 2714
+  },
+  "7": {
+    "surah_number": 7,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//007.mp3",
+    "duration": 3435
+  },
+  "8": {
+    "surah_number": 8,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//008.mp3",
+    "duration": 1239
+  },
+  "9": {
+    "surah_number": 9,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//009.mp3",
+    "duration": 2377
+  },
+  "10": {
+    "surah_number": 10,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//010.mp3",
+    "duration": 1607
+  },
+  "11": {
+    "surah_number": 11,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//011.mp3",
+    "duration": 1693
+  },
+  "12": {
+    "surah_number": 12,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//012.mp3",
+    "duration": 1577
+  },
+  "13": {
+    "surah_number": 13,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//013.mp3",
+    "duration": 830
+  },
+  "14": {
+    "surah_number": 14,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//014.mp3",
+    "duration": 636
+  },
+  "15": {
+    "surah_number": 15,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//015.mp3",
+    "duration": 613
+  },
+  "16": {
+    "surah_number": 16,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//016.mp3",
+    "duration": 1477
+  },
+  "17": {
+    "surah_number": 17,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//017.mp3",
+    "duration": 1421
+  },
+  "18": {
+    "surah_number": 18,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//018.mp3",
+    "duration": 1881
+  },
+  "19": {
+    "surah_number": 19,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//019.mp3",
+    "duration": 1208
+  },
+  "20": {
+    "surah_number": 20,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//020.mp3",
+    "duration": 1621
+  },
+  "21": {
+    "surah_number": 21,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//021.mp3",
+    "duration": 1455
+  },
+  "22": {
+    "surah_number": 22,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//022.mp3",
+    "duration": 1504
+  },
+  "23": {
+    "surah_number": 23,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//023.mp3",
+    "duration": 1370
+  },
+  "24": {
+    "surah_number": 24,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//024.mp3",
+    "duration": 1614
+  },
+  "25": {
+    "surah_number": 25,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//025.mp3",
+    "duration": 1031
+  },
+  "26": {
+    "surah_number": 26,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//026.mp3",
+    "duration": 1609
+  },
+  "27": {
+    "surah_number": 27,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//027.mp3",
+    "duration": 1578
+  },
+  "28": {
+    "surah_number": 28,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//028.mp3",
+    "duration": 1608
+  },
+  "29": {
+    "surah_number": 29,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//029.mp3",
+    "duration": 1193
+  },
+  "30": {
+    "surah_number": 30,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//030.mp3",
+    "duration": 1013
+  },
+  "31": {
+    "surah_number": 31,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//031.mp3",
+    "duration": 708
+  },
+  "32": {
+    "surah_number": 32,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//032.mp3",
+    "duration": 452
+  },
+  "33": {
+    "surah_number": 33,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//033.mp3",
+    "duration": 1653
+  },
+  "34": {
+    "surah_number": 34,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//034.mp3",
+    "duration": 932
+  },
+  "35": {
+    "surah_number": 35,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//035.mp3",
+    "duration": 991
+  },
+  "36": {
+    "surah_number": 36,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//036.mp3",
+    "duration": 890
+  },
+  "37": {
+    "surah_number": 37,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//037.mp3",
+    "duration": 1192
+  },
+  "38": {
+    "surah_number": 38,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//038.mp3",
+    "duration": 865
+  },
+  "39": {
+    "surah_number": 39,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//039.mp3",
+    "duration": 1529
+  },
+  "40": {
+    "surah_number": 40,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//040.mp3",
+    "duration": 1487
+  },
+  "41": {
+    "surah_number": 41,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//041.mp3",
+    "duration": 1028
+  },
+  "42": {
+    "surah_number": 42,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//042.mp3",
+    "duration": 1059
+  },
+  "43": {
+    "surah_number": 43,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//043.mp3",
+    "duration": 1074
+  },
+  "44": {
+    "surah_number": 44,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//044.mp3",
+    "duration": 499
+  },
+  "45": {
+    "surah_number": 45,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//045.mp3",
+    "duration": 627
+  },
+  "46": {
+    "surah_number": 46,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//046.mp3",
+    "duration": 772
+  },
+  "47": {
+    "surah_number": 47,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//047.mp3",
+    "duration": 704
+  },
+  "48": {
+    "surah_number": 48,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//048.mp3",
+    "duration": 757
+  },
+  "49": {
+    "surah_number": 49,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//049.mp3",
+    "duration": 484
+  },
+  "50": {
+    "surah_number": 50,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//050.mp3",
+    "duration": 503
+  },
+  "51": {
+    "surah_number": 51,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//051.mp3",
+    "duration": 422
+  },
+  "52": {
+    "surah_number": 52,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//052.mp3",
+    "duration": 365
+  },
+  "53": {
+    "surah_number": 53,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//053.mp3",
+    "duration": 406
+  },
+  "54": {
+    "surah_number": 54,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//054.mp3",
+    "duration": 401
+  },
+  "55": {
+    "surah_number": 55,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//055.mp3",
+    "duration": 573
+  },
+  "56": {
+    "surah_number": 56,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//056.mp3",
+    "duration": 561
+  },
+  "57": {
+    "surah_number": 57,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//057.mp3",
+    "duration": 665
+  },
+  "58": {
+    "surah_number": 58,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//058.mp3",
+    "duration": 518
+  },
+  "59": {
+    "surah_number": 59,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//059.mp3",
+    "duration": 609
+  },
+  "60": {
+    "surah_number": 60,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//060.mp3",
+    "duration": 442
+  },
+  "61": {
+    "surah_number": 61,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//061.mp3",
+    "duration": 246
+  },
+  "62": {
+    "surah_number": 62,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//062.mp3",
+    "duration": 212
+  },
+  "63": {
+    "surah_number": 63,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//063.mp3",
+    "duration": 230
+  },
+  "64": {
+    "surah_number": 64,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//064.mp3",
+    "duration": 294
+  },
+  "65": {
+    "surah_number": 65,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//065.mp3",
+    "duration": 332
+  },
+  "66": {
+    "surah_number": 66,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//066.mp3",
+    "duration": 367
+  },
+  "67": {
+    "surah_number": 67,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//067.mp3",
+    "duration": 407
+  },
+  "68": {
+    "surah_number": 68,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//068.mp3",
+    "duration": 358
+  },
+  "69": {
+    "surah_number": 69,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//069.mp3",
+    "duration": 375
+  },
+  "70": {
+    "surah_number": 70,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//070.mp3",
+    "duration": 269
+  },
+  "71": {
+    "surah_number": 71,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//071.mp3",
+    "duration": 263
+  },
+  "72": {
+    "surah_number": 72,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//072.mp3",
+    "duration": 317
+  },
+  "73": {
+    "surah_number": 73,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//073.mp3",
+    "duration": 232
+  },
+  "74": {
+    "surah_number": 74,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//074.mp3",
+    "duration": 308
+  },
+  "75": {
+    "surah_number": 75,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//075.mp3",
+    "duration": 217
+  },
+  "76": {
+    "surah_number": 76,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//076.mp3",
+    "duration": 292
+  },
+  "77": {
+    "surah_number": 77,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//077.mp3",
+    "duration": 230
+  },
+  "78": {
+    "surah_number": 78,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//078.mp3",
+    "duration": 235
+  },
+  "79": {
+    "surah_number": 79,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//079.mp3",
+    "duration": 179
+  },
+  "80": {
+    "surah_number": 80,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//080.mp3",
+    "duration": 137
+  },
+  "81": {
+    "surah_number": 81,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//081.mp3",
+    "duration": 95
+  },
+  "82": {
+    "surah_number": 82,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//082.mp3",
+    "duration": 77
+  },
+  "83": {
+    "surah_number": 83,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//083.mp3",
+    "duration": 180
+  },
+  "84": {
+    "surah_number": 84,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//084.mp3",
+    "duration": 118
+  },
+  "85": {
+    "surah_number": 85,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//085.mp3",
+    "duration": 131
+  },
+  "86": {
+    "surah_number": 86,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//086.mp3",
+    "duration": 56
+  },
+  "87": {
+    "surah_number": 87,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//087.mp3",
+    "duration": 57
+  },
+  "88": {
+    "surah_number": 88,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//088.mp3",
+    "duration": 110
+  },
+  "89": {
+    "surah_number": 89,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//089.mp3",
+    "duration": 157
+  },
+  "90": {
+    "surah_number": 90,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//090.mp3",
+    "duration": 65
+  },
+  "91": {
+    "surah_number": 91,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//091.mp3",
+    "duration": 48
+  },
+  "92": {
+    "surah_number": 92,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//092.mp3",
+    "duration": 81
+  },
+  "93": {
+    "surah_number": 93,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//093.mp3",
+    "duration": 38
+  },
+  "94": {
+    "surah_number": 94,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//094.mp3",
+    "duration": 22
+  },
+  "95": {
+    "surah_number": 95,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//095.mp3",
+    "duration": 33
+  },
+  "96": {
+    "surah_number": 96,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//096.mp3",
+    "duration": 71
+  },
+  "97": {
+    "surah_number": 97,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//097.mp3",
+    "duration": 26
+  },
+  "98": {
+    "surah_number": 98,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//098.mp3",
+    "duration": 80
+  },
+  "99": {
+    "surah_number": 99,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//099.mp3",
+    "duration": 33
+  },
+  "100": {
+    "surah_number": 100,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//100.mp3",
+    "duration": 46
+  },
+  "101": {
+    "surah_number": 101,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//101.mp3",
+    "duration": 33
+  },
+  "102": {
+    "surah_number": 102,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//102.mp3",
+    "duration": 40
+  },
+  "103": {
+    "surah_number": 103,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//103.mp3",
+    "duration": 15
+  },
+  "104": {
+    "surah_number": 104,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//104.mp3",
+    "duration": 29
+  },
+  "105": {
+    "surah_number": 105,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//105.mp3",
+    "duration": 23
+  },
+  "106": {
+    "surah_number": 106,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//106.mp3",
+    "duration": 19
+  },
+  "107": {
+    "surah_number": 107,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//107.mp3",
+    "duration": 30
+  },
+  "108": {
+    "surah_number": 108,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//108.mp3",
+    "duration": 10
+  },
+  "109": {
+    "surah_number": 109,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//109.mp3",
+    "duration": 21
+  },
+  "110": {
+    "surah_number": 110,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//110.mp3",
+    "duration": 20
+  },
+  "111": {
+    "surah_number": 111,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//111.mp3",
+    "duration": 21
+  },
+  "112": {
+    "surah_number": 112,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//112.mp3",
+    "duration": 58
+  },
+  "113": {
+    "surah_number": 113,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//113.mp3",
+    "duration": 79
+  },
+  "114": {
+    "surah_number": 114,
+    "audio_url": "https://download.quranicaudio.com/quran/hatem_farid/taraweeh1431//114.mp3",
+    "duration": 97
+  }
+}

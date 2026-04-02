@@ -1,0 +1,572 @@
+{
+  "1": {
+    "surah_number": 1,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//001.mp3",
+    "duration": 46
+  },
+  "2": {
+    "surah_number": 2,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//002.mp3",
+    "duration": 7271
+  },
+  "3": {
+    "surah_number": 3,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//003.mp3",
+    "duration": 4148
+  },
+  "4": {
+    "surah_number": 4,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//004.mp3",
+    "duration": 4296
+  },
+  "5": {
+    "surah_number": 5,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//005.mp3",
+    "duration": 3189
+  },
+  "6": {
+    "surah_number": 6,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//006.mp3",
+    "duration": 3495
+  },
+  "7": {
+    "surah_number": 7,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//007.mp3",
+    "duration": 3854
+  },
+  "8": {
+    "surah_number": 8,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//008.mp3",
+    "duration": 1380
+  },
+  "9": {
+    "surah_number": 9,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//009.mp3",
+    "duration": 2741
+  },
+  "10": {
+    "surah_number": 10,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//010.mp3",
+    "duration": 2212
+  },
+  "11": {
+    "surah_number": 11,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//011.mp3",
+    "duration": 2024
+  },
+  "12": {
+    "surah_number": 12,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//012.mp3",
+    "duration": 1896
+  },
+  "13": {
+    "surah_number": 13,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//013.mp3",
+    "duration": 965
+  },
+  "14": {
+    "surah_number": 14,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//014.mp3",
+    "duration": 999
+  },
+  "15": {
+    "surah_number": 15,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//015.mp3",
+    "duration": 791
+  },
+  "16": {
+    "surah_number": 16,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//016.mp3",
+    "duration": 2155
+  },
+  "17": {
+    "surah_number": 17,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//017.mp3",
+    "duration": 1660
+  },
+  "18": {
+    "surah_number": 18,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//018.mp3",
+    "duration": 1648
+  },
+  "19": {
+    "surah_number": 19,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//019.mp3",
+    "duration": 999
+  },
+  "20": {
+    "surah_number": 20,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//020.mp3",
+    "duration": 1408
+  },
+  "21": {
+    "surah_number": 21,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//021.mp3",
+    "duration": 1283
+  },
+  "22": {
+    "surah_number": 22,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//022.mp3",
+    "duration": 1521
+  },
+  "23": {
+    "surah_number": 23,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//023.mp3",
+    "duration": 1183
+  },
+  "24": {
+    "surah_number": 24,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//024.mp3",
+    "duration": 1429
+  },
+  "25": {
+    "surah_number": 25,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//025.mp3",
+    "duration": 930
+  },
+  "26": {
+    "surah_number": 26,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//026.mp3",
+    "duration": 1470
+  },
+  "27": {
+    "surah_number": 27,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//027.mp3",
+    "duration": 1335
+  },
+  "28": {
+    "surah_number": 28,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//028.mp3",
+    "duration": 1507
+  },
+  "29": {
+    "surah_number": 29,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//029.mp3",
+    "duration": 1068
+  },
+  "30": {
+    "surah_number": 30,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//030.mp3",
+    "duration": 944
+  },
+  "31": {
+    "surah_number": 31,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//031.mp3",
+    "duration": 601
+  },
+  "32": {
+    "surah_number": 32,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//032.mp3",
+    "duration": 410
+  },
+  "33": {
+    "surah_number": 33,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//033.mp3",
+    "duration": 1447
+  },
+  "34": {
+    "surah_number": 34,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//034.mp3",
+    "duration": 938
+  },
+  "35": {
+    "surah_number": 35,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//035.mp3",
+    "duration": 890
+  },
+  "36": {
+    "surah_number": 36,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//036.mp3",
+    "duration": 820
+  },
+  "37": {
+    "surah_number": 37,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//037.mp3",
+    "duration": 1086
+  },
+  "38": {
+    "surah_number": 38,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//038.mp3",
+    "duration": 835
+  },
+  "39": {
+    "surah_number": 39,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//039.mp3",
+    "duration": 1240
+  },
+  "40": {
+    "surah_number": 40,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//040.mp3",
+    "duration": 1290
+  },
+  "41": {
+    "surah_number": 41,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//041.mp3",
+    "duration": 897
+  },
+  "42": {
+    "surah_number": 42,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//042.mp3",
+    "duration": 945
+  },
+  "43": {
+    "surah_number": 43,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//043.mp3",
+    "duration": 982
+  },
+  "44": {
+    "surah_number": 44,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//044.mp3",
+    "duration": 414
+  },
+  "45": {
+    "surah_number": 45,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//045.mp3",
+    "duration": 534
+  },
+  "46": {
+    "surah_number": 46,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//046.mp3",
+    "duration": 700
+  },
+  "47": {
+    "surah_number": 47,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//047.mp3",
+    "duration": 608
+  },
+  "48": {
+    "surah_number": 48,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//048.mp3",
+    "duration": 615
+  },
+  "49": {
+    "surah_number": 49,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//049.mp3",
+    "duration": 400
+  },
+  "50": {
+    "surah_number": 50,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//050.mp3",
+    "duration": 388
+  },
+  "51": {
+    "surah_number": 51,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//051.mp3",
+    "duration": 447
+  },
+  "52": {
+    "surah_number": 52,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//052.mp3",
+    "duration": 385
+  },
+  "53": {
+    "surah_number": 53,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//053.mp3",
+    "duration": 377
+  },
+  "54": {
+    "surah_number": 54,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//054.mp3",
+    "duration": 407
+  },
+  "55": {
+    "surah_number": 55,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//055.mp3",
+    "duration": 479
+  },
+  "56": {
+    "surah_number": 56,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//056.mp3",
+    "duration": 502
+  },
+  "57": {
+    "surah_number": 57,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//057.mp3",
+    "duration": 639
+  },
+  "58": {
+    "surah_number": 58,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//058.mp3",
+    "duration": 521
+  },
+  "59": {
+    "surah_number": 59,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//059.mp3",
+    "duration": 498
+  },
+  "60": {
+    "surah_number": 60,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//060.mp3",
+    "duration": 417
+  },
+  "61": {
+    "surah_number": 61,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//061.mp3",
+    "duration": 248
+  },
+  "62": {
+    "surah_number": 62,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//062.mp3",
+    "duration": 185
+  },
+  "63": {
+    "surah_number": 63,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//063.mp3",
+    "duration": 212
+  },
+  "64": {
+    "surah_number": 64,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//064.mp3",
+    "duration": 265
+  },
+  "65": {
+    "surah_number": 65,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//065.mp3",
+    "duration": 320
+  },
+  "66": {
+    "surah_number": 66,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//066.mp3",
+    "duration": 286
+  },
+  "67": {
+    "surah_number": 67,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//067.mp3",
+    "duration": 346
+  },
+  "68": {
+    "surah_number": 68,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//068.mp3",
+    "duration": 353
+  },
+  "69": {
+    "surah_number": 69,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//069.mp3",
+    "duration": 325
+  },
+  "70": {
+    "surah_number": 70,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//070.mp3",
+    "duration": 274
+  },
+  "71": {
+    "surah_number": 71,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//071.mp3",
+    "duration": 252
+  },
+  "72": {
+    "surah_number": 72,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//072.mp3",
+    "duration": 295
+  },
+  "73": {
+    "surah_number": 73,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//073.mp3",
+    "duration": 220
+  },
+  "74": {
+    "surah_number": 74,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//074.mp3",
+    "duration": 292
+  },
+  "75": {
+    "surah_number": 75,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//075.mp3",
+    "duration": 184
+  },
+  "76": {
+    "surah_number": 76,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//076.mp3",
+    "duration": 289
+  },
+  "77": {
+    "surah_number": 77,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//077.mp3",
+    "duration": 234
+  },
+  "78": {
+    "surah_number": 78,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//078.mp3",
+    "duration": 206
+  },
+  "79": {
+    "surah_number": 79,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//079.mp3",
+    "duration": 205
+  },
+  "80": {
+    "surah_number": 80,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//080.mp3",
+    "duration": 166
+  },
+  "81": {
+    "surah_number": 81,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//081.mp3",
+    "duration": 120
+  },
+  "82": {
+    "surah_number": 82,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//082.mp3",
+    "duration": 98
+  },
+  "83": {
+    "surah_number": 83,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//083.mp3",
+    "duration": 212
+  },
+  "84": {
+    "surah_number": 84,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//084.mp3",
+    "duration": 120
+  },
+  "85": {
+    "surah_number": 85,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//085.mp3",
+    "duration": 121
+  },
+  "86": {
+    "surah_number": 86,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//086.mp3",
+    "duration": 73
+  },
+  "87": {
+    "surah_number": 87,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//087.mp3",
+    "duration": 79
+  },
+  "88": {
+    "surah_number": 88,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//088.mp3",
+    "duration": 102
+  },
+  "89": {
+    "surah_number": 89,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//089.mp3",
+    "duration": 156
+  },
+  "90": {
+    "surah_number": 90,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//090.mp3",
+    "duration": 87
+  },
+  "91": {
+    "surah_number": 91,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//091.mp3",
+    "duration": 65
+  },
+  "92": {
+    "surah_number": 92,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//092.mp3",
+    "duration": 87
+  },
+  "93": {
+    "surah_number": 93,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//093.mp3",
+    "duration": 52
+  },
+  "94": {
+    "surah_number": 94,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//094.mp3",
+    "duration": 31
+  },
+  "95": {
+    "surah_number": 95,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//095.mp3",
+    "duration": 42
+  },
+  "96": {
+    "surah_number": 96,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//096.mp3",
+    "duration": 80
+  },
+  "97": {
+    "surah_number": 97,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//097.mp3",
+    "duration": 36
+  },
+  "98": {
+    "surah_number": 98,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//098.mp3",
+    "duration": 102
+  },
+  "99": {
+    "surah_number": 99,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//099.mp3",
+    "duration": 46
+  },
+  "100": {
+    "surah_number": 100,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//100.mp3",
+    "duration": 50
+  },
+  "101": {
+    "surah_number": 101,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//101.mp3",
+    "duration": 46
+  },
+  "102": {
+    "surah_number": 102,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//102.mp3",
+    "duration": 38
+  },
+  "103": {
+    "surah_number": 103,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//103.mp3",
+    "duration": 18
+  },
+  "104": {
+    "surah_number": 104,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//104.mp3",
+    "duration": 42
+  },
+  "105": {
+    "surah_number": 105,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//105.mp3",
+    "duration": 30
+  },
+  "106": {
+    "surah_number": 106,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//106.mp3",
+    "duration": 26
+  },
+  "107": {
+    "surah_number": 107,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//107.mp3",
+    "duration": 33
+  },
+  "108": {
+    "surah_number": 108,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//108.mp3",
+    "duration": 16
+  },
+  "109": {
+    "surah_number": 109,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//109.mp3",
+    "duration": 38
+  },
+  "110": {
+    "surah_number": 110,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//110.mp3",
+    "duration": 25
+  },
+  "111": {
+    "surah_number": 111,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//111.mp3",
+    "duration": 29
+  },
+  "112": {
+    "surah_number": 112,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//112.mp3",
+    "duration": 15
+  },
+  "113": {
+    "surah_number": 113,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//113.mp3",
+    "duration": 23
+  },
+  "114": {
+    "surah_number": 114,
+    "audio_url": "https://download.quranicaudio.com/quran/abdurrashid_sufi_doori//114.mp3",
+    "duration": 30
+  }
+}

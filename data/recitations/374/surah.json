@@ -1,0 +1,572 @@
+{
+  "1": {
+    "surah_number": 1,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//001.mp3",
+    "duration": 38
+  },
+  "2": {
+    "surah_number": 2,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//002.mp3",
+    "duration": 6204
+  },
+  "3": {
+    "surah_number": 3,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//003.mp3",
+    "duration": 3830
+  },
+  "4": {
+    "surah_number": 4,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//004.mp3",
+    "duration": 3606
+  },
+  "5": {
+    "surah_number": 5,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//005.mp3",
+    "duration": 2934
+  },
+  "6": {
+    "surah_number": 6,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//006.mp3",
+    "duration": 3173
+  },
+  "7": {
+    "surah_number": 7,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//007.mp3",
+    "duration": 3476
+  },
+  "8": {
+    "surah_number": 8,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//008.mp3",
+    "duration": 1162
+  },
+  "9": {
+    "surah_number": 9,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//009.mp3",
+    "duration": 2736
+  },
+  "10": {
+    "surah_number": 10,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//010.mp3",
+    "duration": 2005
+  },
+  "11": {
+    "surah_number": 11,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//011.mp3",
+    "duration": 2226
+  },
+  "12": {
+    "surah_number": 12,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//012.mp3",
+    "duration": 2014
+  },
+  "13": {
+    "surah_number": 13,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//013.mp3",
+    "duration": 848
+  },
+  "14": {
+    "surah_number": 14,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//014.mp3",
+    "duration": 814
+  },
+  "15": {
+    "surah_number": 15,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//015.mp3",
+    "duration": 650
+  },
+  "16": {
+    "surah_number": 16,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//016.mp3",
+    "duration": 1923
+  },
+  "17": {
+    "surah_number": 17,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//017.mp3",
+    "duration": 1611
+  },
+  "18": {
+    "surah_number": 18,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//018.mp3",
+    "duration": 1506
+  },
+  "19": {
+    "surah_number": 19,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//019.mp3",
+    "duration": 1007
+  },
+  "20": {
+    "surah_number": 20,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//020.mp3",
+    "duration": 1392
+  },
+  "21": {
+    "surah_number": 21,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//021.mp3",
+    "duration": 1385
+  },
+  "22": {
+    "surah_number": 22,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//022.mp3",
+    "duration": 1121
+  },
+  "23": {
+    "surah_number": 23,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//023.mp3",
+    "duration": 1012
+  },
+  "24": {
+    "surah_number": 24,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//024.mp3",
+    "duration": 1391
+  },
+  "25": {
+    "surah_number": 25,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//025.mp3",
+    "duration": 949
+  },
+  "26": {
+    "surah_number": 26,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//026.mp3",
+    "duration": 1384
+  },
+  "27": {
+    "surah_number": 27,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//027.mp3",
+    "duration": 1256
+  },
+  "28": {
+    "surah_number": 28,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//028.mp3",
+    "duration": 1510
+  },
+  "29": {
+    "surah_number": 29,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//029.mp3",
+    "duration": 1107
+  },
+  "30": {
+    "surah_number": 30,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//030.mp3",
+    "duration": 877
+  },
+  "31": {
+    "surah_number": 31,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//031.mp3",
+    "duration": 545
+  },
+  "32": {
+    "surah_number": 32,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//032.mp3",
+    "duration": 327
+  },
+  "33": {
+    "surah_number": 33,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//033.mp3",
+    "duration": 1187
+  },
+  "34": {
+    "surah_number": 34,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//034.mp3",
+    "duration": 805
+  },
+  "35": {
+    "surah_number": 35,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//035.mp3",
+    "duration": 751
+  },
+  "36": {
+    "surah_number": 36,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//036.mp3",
+    "duration": 786
+  },
+  "37": {
+    "surah_number": 37,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//037.mp3",
+    "duration": 1003
+  },
+  "38": {
+    "surah_number": 38,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//038.mp3",
+    "duration": 785
+  },
+  "39": {
+    "surah_number": 39,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//039.mp3",
+    "duration": 1210
+  },
+  "40": {
+    "surah_number": 40,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//040.mp3",
+    "duration": 1284
+  },
+  "41": {
+    "surah_number": 41,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//041.mp3",
+    "duration": 909
+  },
+  "42": {
+    "surah_number": 42,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//042.mp3",
+    "duration": 973
+  },
+  "43": {
+    "surah_number": 43,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//043.mp3",
+    "duration": 940
+  },
+  "44": {
+    "surah_number": 44,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//044.mp3",
+    "duration": 373
+  },
+  "45": {
+    "surah_number": 45,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//045.mp3",
+    "duration": 545
+  },
+  "46": {
+    "surah_number": 46,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//046.mp3",
+    "duration": 560
+  },
+  "47": {
+    "surah_number": 47,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//047.mp3",
+    "duration": 528
+  },
+  "48": {
+    "surah_number": 48,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//048.mp3",
+    "duration": 577
+  },
+  "49": {
+    "surah_number": 49,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//049.mp3",
+    "duration": 375
+  },
+  "50": {
+    "surah_number": 50,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//050.mp3",
+    "duration": 395
+  },
+  "51": {
+    "surah_number": 51,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//051.mp3",
+    "duration": 413
+  },
+  "52": {
+    "surah_number": 52,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//052.mp3",
+    "duration": 360
+  },
+  "53": {
+    "surah_number": 53,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//053.mp3",
+    "duration": 385
+  },
+  "54": {
+    "surah_number": 54,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//054.mp3",
+    "duration": 368
+  },
+  "55": {
+    "surah_number": 55,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//055.mp3",
+    "duration": 513
+  },
+  "56": {
+    "surah_number": 56,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//056.mp3",
+    "duration": 487
+  },
+  "57": {
+    "surah_number": 57,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//057.mp3",
+    "duration": 653
+  },
+  "58": {
+    "surah_number": 58,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//058.mp3",
+    "duration": 472
+  },
+  "59": {
+    "surah_number": 59,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//059.mp3",
+    "duration": 499
+  },
+  "60": {
+    "surah_number": 60,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//060.mp3",
+    "duration": 404
+  },
+  "61": {
+    "surah_number": 61,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//061.mp3",
+    "duration": 234
+  },
+  "62": {
+    "surah_number": 62,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//062.mp3",
+    "duration": 192
+  },
+  "63": {
+    "surah_number": 63,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//063.mp3",
+    "duration": 219
+  },
+  "64": {
+    "surah_number": 64,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//064.mp3",
+    "duration": 266
+  },
+  "65": {
+    "surah_number": 65,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//065.mp3",
+    "duration": 297
+  },
+  "66": {
+    "surah_number": 66,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//066.mp3",
+    "duration": 278
+  },
+  "67": {
+    "surah_number": 67,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//067.mp3",
+    "duration": 366
+  },
+  "68": {
+    "surah_number": 68,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//068.mp3",
+    "duration": 337
+  },
+  "69": {
+    "surah_number": 69,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//069.mp3",
+    "duration": 288
+  },
+  "70": {
+    "surah_number": 70,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//070.mp3",
+    "duration": 249
+  },
+  "71": {
+    "surah_number": 71,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//071.mp3",
+    "duration": 252
+  },
+  "72": {
+    "surah_number": 72,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//072.mp3",
+    "duration": 291
+  },
+  "73": {
+    "surah_number": 73,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//073.mp3",
+    "duration": 220
+  },
+  "74": {
+    "surah_number": 74,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//074.mp3",
+    "duration": 270
+  },
+  "75": {
+    "surah_number": 75,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//075.mp3",
+    "duration": 198
+  },
+  "76": {
+    "surah_number": 76,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//076.mp3",
+    "duration": 326
+  },
+  "77": {
+    "surah_number": 77,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//077.mp3",
+    "duration": 235
+  },
+  "78": {
+    "surah_number": 78,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//078.mp3",
+    "duration": 199
+  },
+  "79": {
+    "surah_number": 79,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//079.mp3",
+    "duration": 194
+  },
+  "80": {
+    "surah_number": 80,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//080.mp3",
+    "duration": 148
+  },
+  "81": {
+    "surah_number": 81,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//081.mp3",
+    "duration": 100
+  },
+  "82": {
+    "surah_number": 82,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//082.mp3",
+    "duration": 80
+  },
+  "83": {
+    "surah_number": 83,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//083.mp3",
+    "duration": 181
+  },
+  "84": {
+    "surah_number": 84,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//084.mp3",
+    "duration": 119
+  },
+  "85": {
+    "surah_number": 85,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//085.mp3",
+    "duration": 109
+  },
+  "86": {
+    "surah_number": 86,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//086.mp3",
+    "duration": 70
+  },
+  "87": {
+    "surah_number": 87,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//087.mp3",
+    "duration": 75
+  },
+  "88": {
+    "surah_number": 88,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//088.mp3",
+    "duration": 95
+  },
+  "89": {
+    "surah_number": 89,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//089.mp3",
+    "duration": 130
+  },
+  "90": {
+    "surah_number": 90,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//090.mp3",
+    "duration": 76
+  },
+  "91": {
+    "surah_number": 91,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//091.mp3",
+    "duration": 58
+  },
+  "92": {
+    "surah_number": 92,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//092.mp3",
+    "duration": 76
+  },
+  "93": {
+    "surah_number": 93,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//093.mp3",
+    "duration": 45
+  },
+  "94": {
+    "surah_number": 94,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//094.mp3",
+    "duration": 26
+  },
+  "95": {
+    "surah_number": 95,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//095.mp3",
+    "duration": 34
+  },
+  "96": {
+    "surah_number": 96,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//096.mp3",
+    "duration": 70
+  },
+  "97": {
+    "surah_number": 97,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//097.mp3",
+    "duration": 30
+  },
+  "98": {
+    "surah_number": 98,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//098.mp3",
+    "duration": 104
+  },
+  "99": {
+    "surah_number": 99,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//099.mp3",
+    "duration": 47
+  },
+  "100": {
+    "surah_number": 100,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//100.mp3",
+    "duration": 51
+  },
+  "101": {
+    "surah_number": 101,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//101.mp3",
+    "duration": 47
+  },
+  "102": {
+    "surah_number": 102,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//102.mp3",
+    "duration": 40
+  },
+  "103": {
+    "surah_number": 103,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//103.mp3",
+    "duration": 18
+  },
+  "104": {
+    "surah_number": 104,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//104.mp3",
+    "duration": 39
+  },
+  "105": {
+    "surah_number": 105,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//105.mp3",
+    "duration": 30
+  },
+  "106": {
+    "surah_number": 106,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//106.mp3",
+    "duration": 29
+  },
+  "107": {
+    "surah_number": 107,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//107.mp3",
+    "duration": 32
+  },
+  "108": {
+    "surah_number": 108,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//108.mp3",
+    "duration": 17
+  },
+  "109": {
+    "surah_number": 109,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//109.mp3",
+    "duration": 27
+  },
+  "110": {
+    "surah_number": 110,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//110.mp3",
+    "duration": 24
+  },
+  "111": {
+    "surah_number": 111,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//111.mp3",
+    "duration": 28
+  },
+  "112": {
+    "surah_number": 112,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//112.mp3",
+    "duration": 18
+  },
+  "113": {
+    "surah_number": 113,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//113.mp3",
+    "duration": 26
+  },
+  "114": {
+    "surah_number": 114,
+    "audio_url": "https://download.quranicaudio.com/quran/makkah_1437//114.mp3",
+    "duration": 30
+  }
+}

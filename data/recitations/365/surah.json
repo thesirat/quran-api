@@ -1,0 +1,572 @@
+{
+  "1": {
+    "surah_number": 1,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//001.mp3",
+    "duration": 58
+  },
+  "2": {
+    "surah_number": 2,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//002.mp3",
+    "duration": 7339
+  },
+  "3": {
+    "surah_number": 3,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//003.mp3",
+    "duration": 4364
+  },
+  "4": {
+    "surah_number": 4,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//004.mp3",
+    "duration": 4237
+  },
+  "5": {
+    "surah_number": 5,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//005.mp3",
+    "duration": 3279
+  },
+  "6": {
+    "surah_number": 6,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//006.mp3",
+    "duration": 3580
+  },
+  "7": {
+    "surah_number": 7,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//007.mp3",
+    "duration": 4038
+  },
+  "8": {
+    "surah_number": 8,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//008.mp3",
+    "duration": 1547
+  },
+  "9": {
+    "surah_number": 9,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//009.mp3",
+    "duration": 3011
+  },
+  "10": {
+    "surah_number": 10,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//010.mp3",
+    "duration": 2223
+  },
+  "11": {
+    "surah_number": 11,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//011.mp3",
+    "duration": 2269
+  },
+  "12": {
+    "surah_number": 12,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//012.mp3",
+    "duration": 2096
+  },
+  "13": {
+    "surah_number": 13,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//013.mp3",
+    "duration": 1026
+  },
+  "14": {
+    "surah_number": 14,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//014.mp3",
+    "duration": 1035
+  },
+  "15": {
+    "surah_number": 15,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//015.mp3",
+    "duration": 932
+  },
+  "16": {
+    "surah_number": 16,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//016.mp3",
+    "duration": 2353
+  },
+  "17": {
+    "surah_number": 17,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//017.mp3",
+    "duration": 1731
+  },
+  "18": {
+    "surah_number": 18,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//018.mp3",
+    "duration": 1787
+  },
+  "19": {
+    "surah_number": 19,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//019.mp3",
+    "duration": 1081
+  },
+  "20": {
+    "surah_number": 20,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//020.mp3",
+    "duration": 1429
+  },
+  "21": {
+    "surah_number": 21,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//021.mp3",
+    "duration": 1511
+  },
+  "22": {
+    "surah_number": 22,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//022.mp3",
+    "duration": 1570
+  },
+  "23": {
+    "surah_number": 23,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//023.mp3",
+    "duration": 1437
+  },
+  "24": {
+    "surah_number": 24,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//024.mp3",
+    "duration": 1712
+  },
+  "25": {
+    "surah_number": 25,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//025.mp3",
+    "duration": 1016
+  },
+  "26": {
+    "surah_number": 26,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//026.mp3",
+    "duration": 1871
+  },
+  "27": {
+    "surah_number": 27,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//027.mp3",
+    "duration": 1505
+  },
+  "28": {
+    "surah_number": 28,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//028.mp3",
+    "duration": 1777
+  },
+  "29": {
+    "surah_number": 29,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//029.mp3",
+    "duration": 1302
+  },
+  "30": {
+    "surah_number": 30,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//030.mp3",
+    "duration": 1064
+  },
+  "31": {
+    "surah_number": 31,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//031.mp3",
+    "duration": 681
+  },
+  "32": {
+    "surah_number": 32,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//032.mp3",
+    "duration": 466
+  },
+  "33": {
+    "surah_number": 33,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//033.mp3",
+    "duration": 1618
+  },
+  "34": {
+    "surah_number": 34,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//034.mp3",
+    "duration": 1069
+  },
+  "35": {
+    "surah_number": 35,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//035.mp3",
+    "duration": 980
+  },
+  "36": {
+    "surah_number": 36,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//036.mp3",
+    "duration": 956
+  },
+  "37": {
+    "surah_number": 37,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//037.mp3",
+    "duration": 1361
+  },
+  "38": {
+    "surah_number": 38,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//038.mp3",
+    "duration": 954
+  },
+  "39": {
+    "surah_number": 39,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//039.mp3",
+    "duration": 1438
+  },
+  "40": {
+    "surah_number": 40,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//040.mp3",
+    "duration": 1504
+  },
+  "41": {
+    "surah_number": 41,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//041.mp3",
+    "duration": 1022
+  },
+  "42": {
+    "surah_number": 42,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//042.mp3",
+    "duration": 1072
+  },
+  "43": {
+    "surah_number": 43,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//043.mp3",
+    "duration": 1177
+  },
+  "44": {
+    "surah_number": 44,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//044.mp3",
+    "duration": 506
+  },
+  "45": {
+    "surah_number": 45,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//045.mp3",
+    "duration": 635
+  },
+  "46": {
+    "surah_number": 46,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//046.mp3",
+    "duration": 781
+  },
+  "47": {
+    "surah_number": 47,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//047.mp3",
+    "duration": 651
+  },
+  "48": {
+    "surah_number": 48,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//048.mp3",
+    "duration": 671
+  },
+  "49": {
+    "surah_number": 49,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//049.mp3",
+    "duration": 467
+  },
+  "50": {
+    "surah_number": 50,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//050.mp3",
+    "duration": 460
+  },
+  "51": {
+    "surah_number": 51,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//051.mp3",
+    "duration": 480
+  },
+  "52": {
+    "surah_number": 52,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//052.mp3",
+    "duration": 431
+  },
+  "53": {
+    "surah_number": 53,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//053.mp3",
+    "duration": 432
+  },
+  "54": {
+    "surah_number": 54,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//054.mp3",
+    "duration": 420
+  },
+  "55": {
+    "surah_number": 55,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//055.mp3",
+    "duration": 632
+  },
+  "56": {
+    "surah_number": 56,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//056.mp3",
+    "duration": 617
+  },
+  "57": {
+    "surah_number": 57,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//057.mp3",
+    "duration": 682
+  },
+  "58": {
+    "surah_number": 58,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//058.mp3",
+    "duration": 588
+  },
+  "59": {
+    "surah_number": 59,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//059.mp3",
+    "duration": 566
+  },
+  "60": {
+    "surah_number": 60,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//060.mp3",
+    "duration": 450
+  },
+  "61": {
+    "surah_number": 61,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//061.mp3",
+    "duration": 281
+  },
+  "62": {
+    "surah_number": 62,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//062.mp3",
+    "duration": 217
+  },
+  "63": {
+    "surah_number": 63,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//063.mp3",
+    "duration": 238
+  },
+  "64": {
+    "surah_number": 64,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//064.mp3",
+    "duration": 311
+  },
+  "65": {
+    "surah_number": 65,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//065.mp3",
+    "duration": 355
+  },
+  "66": {
+    "surah_number": 66,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//066.mp3",
+    "duration": 317
+  },
+  "67": {
+    "surah_number": 67,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//067.mp3",
+    "duration": 389
+  },
+  "68": {
+    "surah_number": 68,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//068.mp3",
+    "duration": 420
+  },
+  "69": {
+    "surah_number": 69,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//069.mp3",
+    "duration": 363
+  },
+  "70": {
+    "surah_number": 70,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//070.mp3",
+    "duration": 309
+  },
+  "71": {
+    "surah_number": 71,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//071.mp3",
+    "duration": 263
+  },
+  "72": {
+    "surah_number": 72,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//072.mp3",
+    "duration": 300
+  },
+  "73": {
+    "surah_number": 73,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//073.mp3",
+    "duration": 230
+  },
+  "74": {
+    "surah_number": 74,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//074.mp3",
+    "duration": 336
+  },
+  "75": {
+    "surah_number": 75,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//075.mp3",
+    "duration": 205
+  },
+  "76": {
+    "surah_number": 76,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//076.mp3",
+    "duration": 302
+  },
+  "77": {
+    "surah_number": 77,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//077.mp3",
+    "duration": 283
+  },
+  "78": {
+    "surah_number": 78,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//078.mp3",
+    "duration": 239
+  },
+  "79": {
+    "surah_number": 79,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//079.mp3",
+    "duration": 229
+  },
+  "80": {
+    "surah_number": 80,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//080.mp3",
+    "duration": 198
+  },
+  "81": {
+    "surah_number": 81,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//081.mp3",
+    "duration": 152
+  },
+  "82": {
+    "surah_number": 82,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//082.mp3",
+    "duration": 114
+  },
+  "83": {
+    "surah_number": 83,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//083.mp3",
+    "duration": 269
+  },
+  "84": {
+    "surah_number": 84,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//084.mp3",
+    "duration": 145
+  },
+  "85": {
+    "surah_number": 85,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//085.mp3",
+    "duration": 156
+  },
+  "86": {
+    "surah_number": 86,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//086.mp3",
+    "duration": 88
+  },
+  "87": {
+    "surah_number": 87,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//087.mp3",
+    "duration": 96
+  },
+  "88": {
+    "surah_number": 88,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//088.mp3",
+    "duration": 121
+  },
+  "89": {
+    "surah_number": 89,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//089.mp3",
+    "duration": 178
+  },
+  "90": {
+    "surah_number": 90,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//090.mp3",
+    "duration": 103
+  },
+  "91": {
+    "surah_number": 91,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//091.mp3",
+    "duration": 78
+  },
+  "92": {
+    "surah_number": 92,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//092.mp3",
+    "duration": 101
+  },
+  "93": {
+    "surah_number": 93,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//093.mp3",
+    "duration": 59
+  },
+  "94": {
+    "surah_number": 94,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//094.mp3",
+    "duration": 36
+  },
+  "95": {
+    "surah_number": 95,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//095.mp3",
+    "duration": 53
+  },
+  "96": {
+    "surah_number": 96,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//096.mp3",
+    "duration": 89
+  },
+  "97": {
+    "surah_number": 97,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//097.mp3",
+    "duration": 37
+  },
+  "98": {
+    "surah_number": 98,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//098.mp3",
+    "duration": 117
+  },
+  "99": {
+    "surah_number": 99,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//099.mp3",
+    "duration": 52
+  },
+  "100": {
+    "surah_number": 100,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//100.mp3",
+    "duration": 59
+  },
+  "101": {
+    "surah_number": 101,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//101.mp3",
+    "duration": 52
+  },
+  "102": {
+    "surah_number": 102,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//102.mp3",
+    "duration": 50
+  },
+  "103": {
+    "surah_number": 103,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//103.mp3",
+    "duration": 21
+  },
+  "104": {
+    "surah_number": 104,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//104.mp3",
+    "duration": 46
+  },
+  "105": {
+    "surah_number": 105,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//105.mp3",
+    "duration": 40
+  },
+  "106": {
+    "surah_number": 106,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//106.mp3",
+    "duration": 35
+  },
+  "107": {
+    "surah_number": 107,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//107.mp3",
+    "duration": 45
+  },
+  "108": {
+    "surah_number": 108,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//108.mp3",
+    "duration": 17
+  },
+  "109": {
+    "surah_number": 109,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//109.mp3",
+    "duration": 37
+  },
+  "110": {
+    "surah_number": 110,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//110.mp3",
+    "duration": 28
+  },
+  "111": {
+    "surah_number": 111,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//111.mp3",
+    "duration": 30
+  },
+  "112": {
+    "surah_number": 112,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//112.mp3",
+    "duration": 18
+  },
+  "113": {
+    "surah_number": 113,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//113.mp3",
+    "duration": 28
+  },
+  "114": {
+    "surah_number": 114,
+    "audio_url": "https://download.quranicaudio.com/quran/huthayfi_qaloon//114.mp3",
+    "duration": 41
+  }
+}

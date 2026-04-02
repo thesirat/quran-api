@@ -1,0 +1,572 @@
+{
+  "1": {
+    "surah_number": 1,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//001.mp3",
+    "duration": 111
+  },
+  "2": {
+    "surah_number": 2,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//002.mp3",
+    "duration": 17162
+  },
+  "3": {
+    "surah_number": 3,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//003.mp3",
+    "duration": 11226
+  },
+  "4": {
+    "surah_number": 4,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//004.mp3",
+    "duration": 10262
+  },
+  "5": {
+    "surah_number": 5,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//005.mp3",
+    "duration": 7934
+  },
+  "6": {
+    "surah_number": 6,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//006.mp3",
+    "duration": 9045
+  },
+  "7": {
+    "surah_number": 7,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//007.mp3",
+    "duration": 9724
+  },
+  "8": {
+    "surah_number": 8,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//008.mp3",
+    "duration": 3639
+  },
+  "9": {
+    "surah_number": 9,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//009.mp3",
+    "duration": 7394
+  },
+  "10": {
+    "surah_number": 10,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//010.mp3",
+    "duration": 4944
+  },
+  "11": {
+    "surah_number": 11,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//011.mp3",
+    "duration": 5111
+  },
+  "12": {
+    "surah_number": 12,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//012.mp3",
+    "duration": 5293
+  },
+  "13": {
+    "surah_number": 13,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//013.mp3",
+    "duration": 2288
+  },
+  "14": {
+    "surah_number": 14,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//014.mp3",
+    "duration": 2523
+  },
+  "15": {
+    "surah_number": 15,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//015.mp3",
+    "duration": 1907
+  },
+  "16": {
+    "surah_number": 16,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//016.mp3",
+    "duration": 5132
+  },
+  "17": {
+    "surah_number": 17,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//017.mp3",
+    "duration": 4269
+  },
+  "18": {
+    "surah_number": 18,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//018.mp3",
+    "duration": 4718
+  },
+  "19": {
+    "surah_number": 19,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//019.mp3",
+    "duration": 2613
+  },
+  "20": {
+    "surah_number": 20,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//020.mp3",
+    "duration": 3206
+  },
+  "21": {
+    "surah_number": 21,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//021.mp3",
+    "duration": 3323
+  },
+  "22": {
+    "surah_number": 22,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//022.mp3",
+    "duration": 3655
+  },
+  "23": {
+    "surah_number": 23,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//023.mp3",
+    "duration": 2891
+  },
+  "24": {
+    "surah_number": 24,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//024.mp3",
+    "duration": 3753
+  },
+  "25": {
+    "surah_number": 25,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//025.mp3",
+    "duration": 2249
+  },
+  "26": {
+    "surah_number": 26,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//026.mp3",
+    "duration": 3611
+  },
+  "27": {
+    "surah_number": 27,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//027.mp3",
+    "duration": 3188
+  },
+  "28": {
+    "surah_number": 28,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//028.mp3",
+    "duration": 3638
+  },
+  "29": {
+    "surah_number": 29,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//029.mp3",
+    "duration": 2626
+  },
+  "30": {
+    "surah_number": 30,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//030.mp3",
+    "duration": 2117
+  },
+  "31": {
+    "surah_number": 31,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//031.mp3",
+    "duration": 1301
+  },
+  "32": {
+    "surah_number": 32,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//032.mp3",
+    "duration": 968
+  },
+  "33": {
+    "surah_number": 33,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//033.mp3",
+    "duration": 3501
+  },
+  "34": {
+    "surah_number": 34,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//034.mp3",
+    "duration": 2449
+  },
+  "35": {
+    "surah_number": 35,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//035.mp3",
+    "duration": 1983
+  },
+  "36": {
+    "surah_number": 36,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//036.mp3",
+    "duration": 1940
+  },
+  "37": {
+    "surah_number": 37,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//037.mp3",
+    "duration": 2448
+  },
+  "38": {
+    "surah_number": 38,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//038.mp3",
+    "duration": 1920
+  },
+  "39": {
+    "surah_number": 39,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//039.mp3",
+    "duration": 2958
+  },
+  "40": {
+    "surah_number": 40,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//040.mp3",
+    "duration": 3092
+  },
+  "41": {
+    "surah_number": 41,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//041.mp3",
+    "duration": 2223
+  },
+  "42": {
+    "surah_number": 42,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//042.mp3",
+    "duration": 2408
+  },
+  "43": {
+    "surah_number": 43,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//043.mp3",
+    "duration": 2334
+  },
+  "44": {
+    "surah_number": 44,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//044.mp3",
+    "duration": 902
+  },
+  "45": {
+    "surah_number": 45,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//045.mp3",
+    "duration": 1182
+  },
+  "46": {
+    "surah_number": 46,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//046.mp3",
+    "duration": 1823
+  },
+  "47": {
+    "surah_number": 47,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//047.mp3",
+    "duration": 1520
+  },
+  "48": {
+    "surah_number": 48,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//048.mp3",
+    "duration": 1440
+  },
+  "49": {
+    "surah_number": 49,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//049.mp3",
+    "duration": 936
+  },
+  "50": {
+    "surah_number": 50,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//050.mp3",
+    "duration": 1011
+  },
+  "51": {
+    "surah_number": 51,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//051.mp3",
+    "duration": 1124
+  },
+  "52": {
+    "surah_number": 52,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//052.mp3",
+    "duration": 950
+  },
+  "53": {
+    "surah_number": 53,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//053.mp3",
+    "duration": 1013
+  },
+  "54": {
+    "surah_number": 54,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//054.mp3",
+    "duration": 1002
+  },
+  "55": {
+    "surah_number": 55,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//055.mp3",
+    "duration": 1269
+  },
+  "56": {
+    "surah_number": 56,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//056.mp3",
+    "duration": 1220
+  },
+  "57": {
+    "surah_number": 57,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//057.mp3",
+    "duration": 1575
+  },
+  "58": {
+    "surah_number": 58,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//058.mp3",
+    "duration": 1420
+  },
+  "59": {
+    "surah_number": 59,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//059.mp3",
+    "duration": 1249
+  },
+  "60": {
+    "surah_number": 60,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//060.mp3",
+    "duration": 1031
+  },
+  "61": {
+    "surah_number": 61,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//061.mp3",
+    "duration": 626
+  },
+  "62": {
+    "surah_number": 62,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//062.mp3",
+    "duration": 488
+  },
+  "63": {
+    "surah_number": 63,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//063.mp3",
+    "duration": 638
+  },
+  "64": {
+    "surah_number": 64,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//064.mp3",
+    "duration": 705
+  },
+  "65": {
+    "surah_number": 65,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//065.mp3",
+    "duration": 886
+  },
+  "66": {
+    "surah_number": 66,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//066.mp3",
+    "duration": 777
+  },
+  "67": {
+    "surah_number": 67,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//067.mp3",
+    "duration": 1085
+  },
+  "68": {
+    "surah_number": 68,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//068.mp3",
+    "duration": 1020
+  },
+  "69": {
+    "surah_number": 69,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//069.mp3",
+    "duration": 871
+  },
+  "70": {
+    "surah_number": 70,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//070.mp3",
+    "duration": 710
+  },
+  "71": {
+    "surah_number": 71,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//071.mp3",
+    "duration": 704
+  },
+  "72": {
+    "surah_number": 72,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//072.mp3",
+    "duration": 876
+  },
+  "73": {
+    "surah_number": 73,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//073.mp3",
+    "duration": 627
+  },
+  "74": {
+    "surah_number": 74,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//074.mp3",
+    "duration": 737
+  },
+  "75": {
+    "surah_number": 75,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//075.mp3",
+    "duration": 485
+  },
+  "76": {
+    "surah_number": 76,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//076.mp3",
+    "duration": 762
+  },
+  "77": {
+    "surah_number": 77,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//077.mp3",
+    "duration": 624
+  },
+  "78": {
+    "surah_number": 78,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//078.mp3",
+    "duration": 642
+  },
+  "79": {
+    "surah_number": 79,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//079.mp3",
+    "duration": 572
+  },
+  "80": {
+    "surah_number": 80,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//080.mp3",
+    "duration": 449
+  },
+  "81": {
+    "surah_number": 81,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//081.mp3",
+    "duration": 337
+  },
+  "82": {
+    "surah_number": 82,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//082.mp3",
+    "duration": 268
+  },
+  "83": {
+    "surah_number": 83,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//083.mp3",
+    "duration": 628
+  },
+  "84": {
+    "surah_number": 84,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//084.mp3",
+    "duration": 376
+  },
+  "85": {
+    "surah_number": 85,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//085.mp3",
+    "duration": 384
+  },
+  "86": {
+    "surah_number": 86,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//086.mp3",
+    "duration": 217
+  },
+  "87": {
+    "surah_number": 87,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//087.mp3",
+    "duration": 246
+  },
+  "88": {
+    "surah_number": 88,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//088.mp3",
+    "duration": 304
+  },
+  "89": {
+    "surah_number": 89,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//089.mp3",
+    "duration": 456
+  },
+  "90": {
+    "surah_number": 90,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//090.mp3",
+    "duration": 255
+  },
+  "91": {
+    "surah_number": 91,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//091.mp3",
+    "duration": 197
+  },
+  "92": {
+    "surah_number": 92,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//092.mp3",
+    "duration": 242
+  },
+  "93": {
+    "surah_number": 93,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//093.mp3",
+    "duration": 132
+  },
+  "94": {
+    "surah_number": 94,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//094.mp3",
+    "duration": 85
+  },
+  "95": {
+    "surah_number": 95,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//095.mp3",
+    "duration": 120
+  },
+  "96": {
+    "surah_number": 96,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//096.mp3",
+    "duration": 216
+  },
+  "97": {
+    "surah_number": 97,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//097.mp3",
+    "duration": 94
+  },
+  "98": {
+    "surah_number": 98,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//098.mp3",
+    "duration": 303
+  },
+  "99": {
+    "surah_number": 99,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//099.mp3",
+    "duration": 124
+  },
+  "100": {
+    "surah_number": 100,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//100.mp3",
+    "duration": 141
+  },
+  "101": {
+    "surah_number": 101,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//101.mp3",
+    "duration": 122
+  },
+  "102": {
+    "surah_number": 102,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//102.mp3",
+    "duration": 104
+  },
+  "103": {
+    "surah_number": 103,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//103.mp3",
+    "duration": 51
+  },
+  "104": {
+    "surah_number": 104,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//104.mp3",
+    "duration": 106
+  },
+  "105": {
+    "surah_number": 105,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//105.mp3",
+    "duration": 80
+  },
+  "106": {
+    "surah_number": 106,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//106.mp3",
+    "duration": 71
+  },
+  "107": {
+    "surah_number": 107,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//107.mp3",
+    "duration": 94
+  },
+  "108": {
+    "surah_number": 108,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//108.mp3",
+    "duration": 43
+  },
+  "109": {
+    "surah_number": 109,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//109.mp3",
+    "duration": 94
+  },
+  "110": {
+    "surah_number": 110,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//110.mp3",
+    "duration": 66
+  },
+  "111": {
+    "surah_number": 111,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//111.mp3",
+    "duration": 77
+  },
+  "112": {
+    "surah_number": 112,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//112.mp3",
+    "duration": 43
+  },
+  "113": {
+    "surah_number": 113,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//113.mp3",
+    "duration": 66
+  },
+  "114": {
+    "surah_number": 114,
+    "audio_url": "https://download.quranicaudio.com/quran/alhusaynee_al3azazee_with_children//114.mp3",
+    "duration": 72
+  }
+}
