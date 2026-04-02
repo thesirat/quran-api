@@ -8,6 +8,11 @@ import {
   loadTransliterationCatalog,
   loadAyahThemes,
 } from "../data/loader.js";
+import type {
+  RecitationEntry,
+  TafsirCatalogEntry,
+  TranslationCatalogEntry,
+} from "../data/types.js";
 
 const catalog = new Hono();
 
@@ -19,7 +24,7 @@ catalog.get("/translations", async (c) => {
   const all = await loadTranslationCatalog();
   const langFilter = c.req.query("language")?.toLowerCase();
   const data = langFilter
-    ? all.filter((t) => t.language?.toLowerCase().includes(langFilter))
+    ? all.filter((t: TranslationCatalogEntry) => t.language?.toLowerCase().includes(langFilter))
     : all;
   return c.json({ data, meta: { total: data.length } });
 });
@@ -34,7 +39,7 @@ catalog.get("/tafsirs", async (c) => {
   const langFilter = c.req.query("language")?.toLowerCase();
   const typeFilter = c.req.query("type")?.toLowerCase();
 
-  const data = all.filter((t) => {
+  const data = all.filter((t: TafsirCatalogEntry) => {
     if (langFilter && !t.language?.toLowerCase().includes(langFilter)) return false;
     if (typeFilter && t.type !== typeFilter) return false;
     return true;
@@ -49,7 +54,7 @@ catalog.get("/tafsirs", async (c) => {
 catalog.get("/tafsirs/:id", async (c) => {
   const id = c.req.param("id");
   const all = await loadTafsirCatalog();
-  const entry = all.find((t) => String(t.id) === id);
+  const entry = all.find((t: TafsirCatalogEntry) => String(t.id) === id);
   if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
   return c.json({ data: entry });
 });
@@ -60,7 +65,7 @@ catalog.get("/tafsirs/:id", async (c) => {
 catalog.get("/tafsirs/:id/surahs", async (c) => {
   const id = c.req.param("id");
   const all = await loadTafsirCatalog();
-  const entry = all.find((t) => String(t.id) === id);
+  const entry = all.find((t: TafsirCatalogEntry) => String(t.id) === id);
   if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
 
   const checks = await Promise.all(
@@ -81,7 +86,7 @@ catalog.get("/tafsirs/:id/surahs", async (c) => {
 catalog.get("/recitations", async (c) => {
   const all = await loadRecitations();
   const segmentedOnly = c.req.query("segmented") === "true";
-  const data = segmentedOnly ? all.filter((r) => (r.segments_count ?? 0) > 0) : all;
+  const data = segmentedOnly ? all.filter((r: RecitationEntry) => (r.segments_count ?? 0) > 0) : all;
   return c.json({ data, meta: { total: data.length } });
 });
 

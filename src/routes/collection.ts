@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName } from "../data/loader.js";
+import type { VerseMeta } from "../data/types.js";
 
 const collection = new Hono();
 
@@ -11,7 +12,7 @@ async function versesByField(
   value: number
 ): Promise<string[]> {
   const meta = await loadVerseMeta();
-  return Object.entries(meta)
+  return (Object.entries(meta) as [string, VerseMeta][])
     .filter(([, v]) => v[field] === value)
     .sort(([a], [b]) => {
       const [as_, aa] = a.split(":").map(Number);
