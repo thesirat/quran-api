@@ -10,6 +10,7 @@ Usage:
     python3 scripts/scrape_qul.py --resources translations,tafsirs,recitation,fonts
     python3 scripts/scrape_qul.py --headless false     # Show browser for debugging
     python3 scripts/scrape_qul.py --contexts 6         # Change context pool size
+    QUL_DOWNLOAD_TIMEOUT_MS=1800000  # Optional: wait for download to start (default 900000 ms)
 
 Resources include: translations, tafsirs, quran-scripts, quran-metadata, surah-info,
 topics, ayah-themes, similar-ayah, mutashabihat (phrases.json + phrase_verses.json from zip),
@@ -64,6 +65,8 @@ class QULConfig:
     # Timeouts and retries
     timeout_ms: int = 60_000
     retries: int = 3
+    # Playwright expect_download: max wait for the browser to *start* a download (large/slow CDN responses need more).
+    download_timeout_ms: int = int(os.getenv("QUL_DOWNLOAD_TIMEOUT_MS", "900000"))
     
     # Navigation jitter (seconds)
     min_jitter: float = 0.05
@@ -288,7 +291,7 @@ class BaseScraper:
             if await locator.count() == 0:
                 logger.warning(f"[{tag or self.name}] Download button not found.")
                 return None
-            async with page.expect_download(timeout=90_000) as dl_info:
+            async with page.expect_download(timeout=self.config.download_timeout_ms) as dl_info:
                 try: await locator.scroll_into_view_if_needed(timeout=5_000)
                 except Exception: pass
                 await locator.click(timeout=30_000, force=True)
@@ -318,7 +321,7 @@ class BaseScraper:
         try:
             if await locator.count() == 0:
                 return None
-            async with page.expect_download(timeout=120_000) as dl_info:
+            async with page.expect_download(timeout=self.config.download_timeout_ms) as dl_info:
                 try:
                     await locator.scroll_into_view_if_needed(timeout=5_000)
                 except Exception:
