@@ -20,6 +20,21 @@ function isRemoteData(): boolean {
   return !!dataBaseUrl();
 }
 
+/**
+ * Deployed Vercel functions do not include repo `data/` (size limits). Reading from disk there always fails unless `vercel dev` (local checkout).
+ */
+function assertLocalCorpusFilesystemAllowed(): void {
+  if (isRemoteData()) return;
+  if (process.env.VERCEL !== "1") return;
+  if (process.env.VERCEL_ENV === "development") return;
+  throw new Error(
+    "DATA_BASE_URL is required on Vercel (production/preview). The corpus is not bundled in the serverless function. " +
+      "Set DATA_BASE_URL to a pinned base URL whose paths mirror the repo, e.g. " +
+      "https://raw.githubusercontent.com/<owner>/<repo>/<commit-or-tag> (no trailing slash). " +
+      "See docs/api.md — Deployment and corpus storage."
+  );
+}
+
 /** Runtime mode for observability (e.g. GET /). */
 export function getDataLoadingMeta(): { mode: "local" | "remote"; baseUrl: string | null } {
   const b = dataBaseUrl();
@@ -123,6 +138,7 @@ export async function loadJson<T>(relPath: string): Promise<T> {
   if (isRemoteData()) {
     raw = await readDataTextFromRemote(relPath);
   } else {
+    assertLocalCorpusFilesystemAllowed();
     const abs = path.join(ROOT, relPath);
     raw = await fs.readFile(abs, "utf-8");
   }
@@ -153,6 +169,7 @@ export async function loadJsonLazy<T extends Record<string, unknown>>(relPath: s
   if (isRemoteData()) {
     raw = await readDataTextFromRemote(relPath);
   } else {
+    assertLocalCorpusFilesystemAllowed();
     const abs = path.join(ROOT, relPath);
     raw = await fs.readFile(abs, "utf-8");
   }
@@ -217,17 +234,46 @@ import type {
   FontCatalogEntry,
 } from "./types.js";
 import { buildStructureFromVerseMeta } from "./structure-from-verses.js";
+import { assembleVerseMetaFromMetadata } from "./verse-meta-assembled.js";
+import { tryLoadScriptFromQulRaw } from "./quran-script-from-raw.js";
 
-export const loadVerseMeta = () =>
-  loadJson<Record<string, VerseMeta>>("data/verses/meta.json");
+const VERSE_META_CACHE_KEY = "data/verses/meta.json";
+
+/**
+ * Prefer `data/verses/meta.json` when present; otherwise assemble from QUL `data/metadata/*.json`,
+ * mushaf layout word ids (`data/mushaf-layout/kfgqpc_v4_layout_1441h_print.json`), and any `data/quran/*-raw.json`.
+ */
+export async function loadVerseMeta(): Promise<Record<string, VerseMeta>> {
+  if (cache.has(VERSE_META_CACHE_KEY)) return cache.get(VERSE_META_CACHE_KEY) as Record<string, VerseMeta>;
+  const fromFile = await tryLoadJson<Record<string, VerseMeta>>(VERSE_META_CACHE_KEY);
+  if (fromFile) {
+    cache.set(VERSE_META_CACHE_KEY, fromFile);
+    return fromFile;
+  }
+  const assembled = await assembleVerseMetaFromMetadata({ tryLoadJson, loadJson });
+  cache.set(VERSE_META_CACHE_KEY, assembled);
+  return assembled;
+}
 
 export const VALID_SCRIPTS = ["uthmani", "simple", "indopak", "tajweed", "qpc-hafs"] as const;
 export type ScriptName = (typeof VALID_SCRIPTS)[number];
 
 export async function loadScript(script: ScriptName): Promise<Record<string, string>> {
-  const data = await tryLoadJson<Record<string, string>>(`data/quran/${script}.json`);
-  if (data) return data;
-  throw new Error(`Script data not available: ${script}. Run scripts/scrape_qul.py --resources quran-scripts.`);
+  const primaryKey = `data/quran/${script}.json`;
+  if (cache.has(primaryKey)) return cache.get(primaryKey) as Record<string, string>;
+  const data = await tryLoadJson<Record<string, string>>(primaryKey);
+  if (data) {
+    cache.set(primaryKey, data);
+    return data;
+  }
+  const fromRaw = await tryLoadScriptFromQulRaw({ tryLoadJson }, script);
+  if (fromRaw) {
+    cache.set(primaryKey, fromRaw);
+    return fromRaw;
+  }
+  throw new Error(
+    `Script data not available: ${script}. Add data/quran/${script}.json or a matching QUL word dump (see SCRIPT_QUL_RAW_IDS in quran-script-from-raw.ts), or run scripts/scrape_qul.py --resources quran-scripts.`,
+  );
 }
 
 export const loadWordsArabic = () =>
@@ -388,6 +434,7 @@ async function readFontManifestFile(fontId: string): Promise<FontManifest | unde
       if (got === undefined) return undefined;
       raw = got;
     } else {
+      assertLocalCorpusFilesystemAllowed();
       raw = await fs.readFile(path.join(fontsRoot(), fontId, "manifest.json"), "utf-8");
     }
     return JSON.parse(raw) as FontManifest;
@@ -414,6 +461,7 @@ export async function listFontResources(): Promise<FontListItem[]> {
       .sort((a, b) => Number(a.id) - Number(b.id));
   }
 
+  assertLocalCorpusFilesystemAllowed();
   const root = fontsRoot();
   let entries: Dirent[];
   try {
@@ -463,6 +511,7 @@ export async function loadFontDetail(fontId: string): Promise<{ id: string; deta
     };
   }
 
+  assertLocalCorpusFilesystemAllowed();
   const dir = path.join(fontsRoot(), fontId);
   try {
     const st = await fs.stat(dir);
@@ -498,6 +547,7 @@ export async function readFontFile(fontId: string, filename: string): Promise<Bu
     return readDataBufferFromRemote(rel);
   }
 
+  assertLocalCorpusFilesystemAllowed();
   const dir = path.resolve(path.join(fontsRoot(), fontId));
   const full = path.resolve(path.join(dir, ...safeName.split("/")));
   if (!full.startsWith(dir + path.sep) && full !== dir) return null;
