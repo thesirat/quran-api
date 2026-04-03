@@ -249,7 +249,7 @@ import type {
 } from "./types.js";
 import { buildStructureFromVerseMeta } from "./structure-from-verses.js";
 import { assembleVerseMetaFromMetadata } from "./verse-meta-assembled.js";
-import { tryLoadScriptFromQulRaw } from "./quran-script-from-raw.js";
+import { tryLoadScriptFromQulRaw, tryLoadWordsArabicFromQulRaw } from "./quran-script-from-raw.js";
 
 const VERSE_META_CACHE_KEY = "data/verses/meta.json";
 
@@ -290,8 +290,31 @@ export async function loadScript(script: ScriptName): Promise<Record<string, str
   );
 }
 
-export const loadWordsArabic = () =>
-  loadJson<Record<string, Omit<WordData, "key">>>("data/words/arabic.json");
+const WORDS_ARABIC_RESOLVED_CACHE_KEY = "resolved:words-arabic";
+
+/**
+ * Prefer `data/words/arabic.json` when present; otherwise build the word map from QUL
+ * `data/quran/<id>-raw.json` (same uthmani resource ids as verse scripts — see `SCRIPT_QUL_RAW_IDS`).
+ */
+export async function loadWordsArabic(): Promise<Record<string, Omit<WordData, "key">>> {
+  if (cache.has(WORDS_ARABIC_RESOLVED_CACHE_KEY)) {
+    return cache.get(WORDS_ARABIC_RESOLVED_CACHE_KEY) as Record<string, Omit<WordData, "key">>;
+  }
+  const explicit = await tryLoadJson<Record<string, Omit<WordData, "key">>>("data/words/arabic.json");
+  if (explicit && Object.keys(explicit).length > 0) {
+    cache.set(WORDS_ARABIC_RESOLVED_CACHE_KEY, explicit);
+    return explicit;
+  }
+  const fromRaw = await tryLoadWordsArabicFromQulRaw({ tryLoadJson });
+  if (fromRaw && Object.keys(fromRaw).length > 0) {
+    cache.set(WORDS_ARABIC_RESOLVED_CACHE_KEY, fromRaw);
+    return fromRaw;
+  }
+  throw new Error(
+    "Word-by-word Arabic data not available. Add data/words/arabic.json or QUL word-keyed dumps under data/quran/ " +
+      "(e.g. uthmani *-raw.json per SCRIPT_QUL_RAW_IDS in quran-script-from-raw.ts). Run: python3 scripts/scrape_qul.py --resources quran-scripts",
+  );
+}
 
 export const loadWordTranslation = (lang: string) => {
   assertSafeResourceSegment(lang, "word translation lang");

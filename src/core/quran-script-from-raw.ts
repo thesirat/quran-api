@@ -1,13 +1,20 @@
+import type { WordData } from "./types.js";
+
 type TryLoadJson = <T>(relPath: string) => Promise<T | undefined>;
 
 /** Same set as `VALID_SCRIPTS` in loader (avoid importing loader → circular). */
 type QuranScriptId = "uthmani" | "simple" | "indopak" | "tajweed" | "qpc-hafs";
 
-interface RawWordEntry {
+export interface RawWordEntry {
   surah?: string;
   ayah?: string;
   word?: string;
   text?: string;
+  code_v1?: string;
+  code_v2?: string;
+  page?: number;
+  line?: number;
+  char_type_name?: string;
 }
 
 /**
@@ -67,4 +74,82 @@ export async function tryLoadScriptFromQulRaw(
     if (Object.keys(verses).length > 0) return verses;
   }
   return undefined;
+}
+
+export type WordsArabicMap = Record<string, Omit<WordData, "key">>;
+
+function qulRawRowToWordShape(key: string, row: RawWordEntry): WordsArabicMap[string] | null {
+  if (!isWordLocationKey(key)) return null;
+  const text = typeof row.text === "string" ? row.text : "";
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.startsWith("http")) return null;
+  let position = 1;
+  if (row.word !== undefined) {
+    const n = Number(row.word);
+    if (Number.isFinite(n) && n >= 1) position = n;
+  }
+  const out: WordsArabicMap[string] = { text: trimmed, position };
+  if (typeof row.code_v1 === "string" && row.code_v1) out.code_v1 = row.code_v1;
+  if (typeof row.code_v2 === "string" && row.code_v2) out.code_v2 = row.code_v2;
+  if (typeof row.page === "number" && Number.isFinite(row.page)) out.page = row.page;
+  if (typeof row.line === "number" && Number.isFinite(row.line)) out.line = row.line;
+  const t = row.char_type_name;
+  if (typeof t === "string" && t) out.type = t;
+  return out;
+}
+
+function buildWordsMapFromRaw(raw: Record<string, RawWordEntry>): WordsArabicMap {
+  const out: WordsArabicMap = {};
+  for (const [key, row] of Object.entries(raw)) {
+    const shaped = qulRawRowToWordShape(key, row);
+    if (shaped) out[key] = shaped;
+  }
+  return out;
+}
+
+/**
+ * Load per-word Arabic (and optional glyphs/layout fields) from QUL `data/quran/<id>-raw.json`.
+ * Uses the same uthmani resource id list as `tryLoadScriptFromQulRaw` so keys match `verse.meta.words_count`.
+ * Optionally merges `text_indopak` from the indopak raw dump when the same `surah:ayah:word` exists there.
+ */
+export async function tryLoadWordsArabicFromQulRaw(deps: {
+  tryLoadJson: TryLoadJson;
+}): Promise<WordsArabicMap | undefined> {
+  const uthmaniIds = SCRIPT_QUL_RAW_IDS.uthmani;
+  if (!uthmaniIds?.length) return undefined;
+
+  let base: Record<string, RawWordEntry> | undefined;
+  for (const id of uthmaniIds) {
+    const p = `data/quran/${id}-raw.json`;
+    const raw = await deps.tryLoadJson<Record<string, RawWordEntry>>(p);
+    if (raw && Object.keys(raw).length > 0) {
+      base = raw;
+      break;
+    }
+  }
+  if (!base) return undefined;
+
+  const map = buildWordsMapFromRaw(base);
+  if (Object.keys(map).length === 0) return undefined;
+
+  const indopakIds = SCRIPT_QUL_RAW_IDS.indopak;
+  if (!indopakIds?.length) return map;
+
+  let indoRaw: Record<string, RawWordEntry> | undefined;
+  for (const id of indopakIds) {
+    const p = `data/quran/${id}-raw.json`;
+    const raw = await deps.tryLoadJson<Record<string, RawWordEntry>>(p);
+    if (raw && Object.keys(raw).length > 0) {
+      indoRaw = raw;
+      break;
+    }
+  }
+  if (!indoRaw) return map;
+
+  for (const key of Object.keys(map)) {
+    const alt = indoRaw[key];
+    const t = alt && typeof alt.text === "string" ? alt.text.trim() : "";
+    if (t) map[key] = { ...map[key], text_indopak: t };
+  }
+  return map;
 }
