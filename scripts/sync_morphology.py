@@ -194,7 +194,11 @@ def parse_tsv(text: str) -> tuple[dict, dict, dict]:
 def main() -> None:
     t0 = time.time()
     print("Downloading quran-morphology.txt …")
-    text = fetch(TSV_URL, timeout=120).text
+    # raw.githubusercontent.com serves this as application/octet-stream with no charset.
+    # Using Response.text lets requests/chardet pick a wrong encoding and turns Arabic into mojibake
+    # (often showing as random CJK). Always decode the UTF-8 bytes explicitly.
+    resp = fetch(TSV_URL, timeout=120)
+    text = resp.content.decode("utf-8")
     print(f"  {len(text):,} characters downloaded ({time.time() - t0:.1f}s) — parsing …")
 
     t1 = time.time()
