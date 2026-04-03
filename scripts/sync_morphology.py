@@ -82,12 +82,14 @@ def _parse_pos(tag: str, feats: dict) -> dict:
     elif "F" in feats:
         result["gender"] = "feminine"
 
-    # Number
+    # Number (S / D / P in the morphology stream)
+    # Note: prefix lines use "P|PREF|…" where the leading P is not plural — same key "P" in feats.
+    # Only treat P as plural when this segment is not explicitly a prefix/suffix piece.
     if "S" in feats:
         result["number"] = "singular"
     elif "D" in feats:
         result["number"] = "dual"
-    elif "P" in feats:
+    elif "P" in feats and not feats.get("PREF") and not feats.get("SUFF"):
         result["number"] = "plural"
 
     # Case

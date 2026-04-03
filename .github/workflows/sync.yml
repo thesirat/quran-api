@@ -91,10 +91,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           if git diff --staged --quiet; then
-            echo "No changes under data/ — skipped commit: regenerated files are byte-identical to HEAD."
-            echo "That is normal if morphology/fonts were already up to date on this branch."
-            echo "If the API still shows wrong text, check the file on GitHub (e.g. search corpus.json for \"1:1:1\") and confirm scripts/sync_morphology.py uses UTF-8 decode on the default branch."
-            echo "For QUL-only issues, verify secrets QUL_EMAIL / QUL_PASSWORD."
+            echo "No changes under data/ — skipped commit: output is byte-identical to HEAD."
+            echo "The sync ran correctly; upstream sources and the generator produced the same JSON as what is already committed."
+            echo "A commit only appears when upstream data or scripts change the file contents."
           else
             git commit -m "chore(data): refresh from QUL + corpus [skip ci]"
             git push
