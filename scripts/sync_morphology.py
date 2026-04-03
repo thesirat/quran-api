@@ -191,6 +191,29 @@ def parse_tsv(text: str) -> tuple[dict, dict, dict]:
     return corpus, dict(roots), dict(lemmas)
 
 
+def _assert_morphology_not_mojibake(corpus: dict[str, dict]) -> None:
+    """
+    Fail fast if the TSV was mis-decoded (common when using requests Response.text on
+    application/octet-stream): Arabic UTF-8 misread often lands in the CJK Unicode block.
+    """
+    row = corpus.get("1:1:1")
+    if not row:
+        return
+    segs = row.get("segments") or []
+    if not segs:
+        return
+    form = (segs[0].get("form") or "").strip()
+    if not form:
+        return
+    has_arabic = any(0x0600 <= ord(c) <= 0x06FF for c in form)
+    looks_cjk = any(0x4E00 <= ord(c) <= 0x9FFF for c in form)
+    if looks_cjk and not has_arabic:
+        raise RuntimeError(
+            "Morphology sanity check failed: word 1:1:1 'form' looks like CJK mojibake, not Arabic. "
+            "Fix: decode the download as UTF-8 (e.g. response.content.decode('utf-8')), not Response.text."
+        )
+
+
 def main() -> None:
     t0 = time.time()
     print("Downloading quran-morphology.txt …")
@@ -204,6 +227,8 @@ def main() -> None:
     t1 = time.time()
     corpus, roots, lemmas = parse_tsv(text)
     print(f"  {len(corpus):,} word keys  |  {len(roots):,} roots  |  {len(lemmas):,} lemmas  ({time.time() - t1:.1f}s)")
+
+    _assert_morphology_not_mojibake(corpus)
 
     write_json("data/morphology/corpus.json", corpus)
     write_json("data/morphology/roots.json", roots)

@@ -91,7 +91,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           if git diff --staged --quiet; then
-            echo "No changes under data/ — skipped commit (scraper produced no diff vs HEAD, or downloads failed). Check logs and repo secrets (QUL_EMAIL / QUL_PASSWORD for QUL)."
+            echo "No changes under data/ — skipped commit: regenerated files are byte-identical to HEAD."
+            echo "That is normal if morphology/fonts were already up to date on this branch."
+            echo "If the API still shows wrong text, check the file on GitHub (e.g. search corpus.json for \"1:1:1\") and confirm scripts/sync_morphology.py uses UTF-8 decode on the default branch."
+            echo "For QUL-only issues, verify secrets QUL_EMAIL / QUL_PASSWORD."
           else
             git commit -m "chore(data): refresh from QUL + corpus [skip ci]"
             git push
