@@ -56,6 +56,7 @@ app.get("/", (c) =>
       mushaf: "/v1/mushaf/:n",
       // Morphology & search
       morphology: "/v1/morphology/:word_key",
+      morphology_query: "/v1/morphology?word_key=surah:ayah:word",
       search_root: "/v1/search/root/:root",
       search_lemma: "/v1/search/lemma/:lemma",
       search_word: "/v1/search/word/:word",

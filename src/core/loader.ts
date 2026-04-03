@@ -2,6 +2,7 @@ import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import simdjson from "simdjson";
+import type { JSONTape } from "simdjson";
 
 // Module-level cache: persists across warm Vercel invocations.
 const cache = new Map<string, unknown>();
@@ -158,6 +159,19 @@ export async function tryLoadJson<T>(relPath: string): Promise<T | undefined> {
 }
 
 /**
+ * simdjson `valueForKeyPath` uses `.` / `[n]` path syntax; missing keys throw (they do not return
+ * undefined). The `in` operator / `JSON.stringify` can invoke `has` and crash. Word keys like
+ * `1:1:1` are safe as a single segment, but we still wrap all lookups so proxies never throw.
+ */
+function simdjsonKeyLookup(tape: JSONTape, prop: string): unknown {
+  try {
+    return tape.valueForKeyPath(prop) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Read a large JSON file using simdjson SIMD acceleration.
  * Values are extracted lazily per key and cached to avoid repeated C++ round-trips.
  * The returned object is a Proxy — property access drives the lazy extraction.
@@ -179,13 +193,13 @@ export async function loadJsonLazy<T extends Record<string, unknown>>(relPath: s
     get(_t, prop: string | symbol) {
       if (typeof prop !== "string") return undefined;
       if (keyCache.has(prop)) return keyCache.get(prop);
-      const val = tape.valueForKeyPath(prop) as unknown;
+      const val = simdjsonKeyLookup(tape, prop);
       keyCache.set(prop, val);
       return val;
     },
     has(_t, prop: string | symbol) {
       if (typeof prop !== "string") return false;
-      return tape.valueForKeyPath(prop) !== undefined;
+      return simdjsonKeyLookup(tape, prop) !== undefined;
     },
   });
   lazyCache.set(relPath, proxy as Record<string, unknown>);
@@ -284,8 +298,9 @@ export const loadWordTranslation = (lang: string) => {
   return tryLoadJson<Record<string, string>>(`data/words/translations/${lang}.json`);
 };
 
+/** Eager parse: keys are `surah:ayah:word`; lazy simdjson + `valueForKeyPath` is fragile for these routes. */
 export const loadCorpusMorphology = () =>
-  loadJsonLazy<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
+  loadJson<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
 
 export const loadQulMorphology = () =>
   tryLoadJson<Record<string, QulMorphWord>>("data/morphology/qul.json");

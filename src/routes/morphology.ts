@@ -1,21 +1,31 @@
 import { Hono } from "hono";
-import {
-  loadCorpusMorphology,
-  loadQulMorphology,
-} from "../core/loader.js";
+import type { Context } from "hono";
+import { loadCorpusMorphology, loadQulMorphology } from "../core/loader.js";
 
 const morphology = new Hono();
 
-// ---------------------------------------------------------------------------
-// GET /v1/morphology/:word_key  e.g. /v1/morphology/2:255:1
-// ---------------------------------------------------------------------------
-morphology.get("/:word_key", async (c) => {
-  const wk = c.req.param("word_key");
-  const parts = wk.split(":");
-  if (parts.length !== 3 || parts.some((p) => !p || isNaN(Number(p)))) {
-    return c.json({ status: 400, type: "invalid_key", title: "Word key must be surah:ayah:word" }, 400);
+/** Corpus / QUL keys are always `surah:ayah:word` with positive integers (e.g. `1:1:1`, `2:255:3`). */
+export function parseMorphologyWordKey(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  let s = raw.trim();
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* keep s */
   }
+  const parts = s.split(":");
+  if (parts.length !== 3) return null;
+  if (!parts.every((p) => /^\d+$/.test(p))) return null;
+  const surah = Number(parts[0]);
+  const ayah = Number(parts[1]);
+  const word = Number(parts[2]);
+  if (!Number.isInteger(surah) || surah < 1 || surah > 114) return null;
+  if (!Number.isInteger(ayah) || ayah < 1 || ayah > 286) return null;
+  if (!Number.isInteger(word) || word < 1 || word > 256) return null;
+  return `${surah}:${ayah}:${word}`;
+}
 
+async function morphologyResponse(c: Context, wk: string) {
   const [corpus, qul] = await Promise.all([loadCorpusMorphology(), loadQulMorphology()]);
 
   const corpusEntry = corpus[wk];
@@ -32,6 +42,42 @@ morphology.get("/:word_key", async (c) => {
       qul: qulEntry ?? null,
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/morphology?word_key=1:1:1  (or ?key=) — use when path segments cannot contain ':'
+// ---------------------------------------------------------------------------
+morphology.get("/", async (c) => {
+  const wk = parseMorphologyWordKey(c.req.query("word_key") ?? c.req.query("key"));
+  if (!wk) {
+    return c.json(
+      {
+        status: 400,
+        type: "invalid_param",
+        title: "Query word_key (or key) must be surah:ayah:word with integers (e.g. 1:1:1)",
+      },
+      400,
+    );
+  }
+  return morphologyResponse(c, wk);
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/morphology/:word_key  e.g. /v1/morphology/2:255:1
+// ---------------------------------------------------------------------------
+morphology.get("/:word_key", async (c) => {
+  const wk = parseMorphologyWordKey(c.req.param("word_key"));
+  if (!wk) {
+    return c.json(
+      {
+        status: 400,
+        type: "invalid_key",
+        title: "Word key must be surah:ayah:word with integers (e.g. 1:1:1)",
+      },
+      400,
+    );
+  }
+  return morphologyResponse(c, wk);
 });
 
 export { morphology };
