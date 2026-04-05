@@ -62,8 +62,16 @@ export interface WordData {
 }
 
 // ---------------------------------------------------------------------------
-// Morphology (corpus.quran.com — sub-word segments)
+// Morphology (enriched_data.json — MASAQ + mustafa sub-word segments)
 // ---------------------------------------------------------------------------
+/** MASAQ syntactic fields merged from `data/morphology/enriched_data.json`. */
+export interface MorphSyntax {
+  role_ar?: string;
+  declinability?: string;
+  case_mood?: string;
+  gloss?: string;
+}
+
 export interface MorphSegment {
   form: string;
   pos: string;
@@ -79,6 +87,7 @@ export interface MorphSegment {
   mood?: "indicative" | "subjunctive" | "jussive";
   person?: "first" | "second" | "third";
   verb_form?: string;
+  syntax?: MorphSyntax;
 }
 
 // QUL grammar record (per whole word)

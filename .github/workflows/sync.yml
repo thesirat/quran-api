@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "Comma-separated: 'all', 'qul-scrape' (full QUL), 'morphology' (corpus script), and/or scrape_qul keys (e.g. recitation,transliteration,similar-ayah,mushaf-layout)"
+        description: "Comma-separated: 'all', 'qul-scrape' (full QUL), 'morphology' (sync_morphology.py → enriched_data.json), and/or scrape_qul keys (e.g. recitation,transliteration,similar-ayah,mushaf-layout)"
         required: false
         default: "all"
 

@@ -1,7 +1,55 @@
+import os
+import math
 import pandas as pd
 import requests
 import re
 import json
+
+# --- 0. JSON-SAFE VALUES (pandas / numpy NaN is not valid in JSON with allow_nan=False) ---
+def _cell(v):
+    try:
+        if pd.isna(v):
+            return None
+    except TypeError:
+        pass
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    return v
+
+
+def _json_sanitize(obj):
+    """Recursively replace NaN/Inf and pandas NA so json.dump(..., allow_nan=False) succeeds."""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return {str(k): _json_sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_sanitize(x) for x in obj]
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, int):
+        return obj
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    try:
+        if pd.isna(obj):
+            return None
+    except TypeError:
+        pass
+    # numpy / pandas scalar → Python value (e.g. float64('nan') → None)
+    if hasattr(obj, "item") and callable(getattr(obj, "item", None)):
+        try:
+            inner = obj.item()
+        except (ValueError, AttributeError):
+            inner = None
+        if inner is not obj:
+            return _json_sanitize(inner)
+    return obj
+
 
 # --- 1. REGEX FOR FEATURES ---
 _FEAT_RE = re.compile(r"([A-Z0-9]+):(.+)|([A-Z0-9]+)")
@@ -128,27 +176,36 @@ def fetch_and_combine_data():
             key = f"{s}:{v}:{w}:{seg}"
 
             # Lookup high-fidelity morph data
-            morph = morph_lookup.get(key, {"pos": str(row['Morph_Tag']).lower()})
+            tag_raw = _cell(row.get("Morph_Tag"))
+            pos_fb = "unknown" if tag_raw is None else str(tag_raw).strip().lower() or "unknown"
+            morph = morph_lookup.get(key, {"pos": pos_fb})
+
+            form = _cell(row["Segmented_Word"])
+            if form is None:
+                form = ""
+            elif not isinstance(form, str):
+                form = str(form)
 
             record = {
                 "id": key,
-                "form": row['Segmented_Word'],
+                "form": form,
                 "morphology": morph,
                 "syntax": {
-                    "role_ar": row['Syntactic_Role'],
-                    "declinability": row['Invariable_Declinable'],
-                    "case_mood": row.get('Case_Mood', ''),
-                    "gloss": row.get('Gloss', '')
-                }
+                    "role_ar": _cell(row["Syntactic_Role"]),
+                    "declinability": _cell(row["Invariable_Declinable"]),
+                    "case_mood": _cell(row.get("Case_Mood", "")),
+                    "gloss": _cell(row.get("Gloss", "")),
+                },
             }
-            combined.append(record)
+            combined.append(_json_sanitize(record))
         except Exception as e:
             continue
 
-    with open("data/morhology/enriched_data.json", "w", encoding="utf-8") as f:
-        json.dump(combined, f, ensure_ascii=False, indent=2)
+    os.makedirs("data/morphology", exist_ok=True)
+    with open("data/morphology/enriched_data.json", "w", encoding="utf-8") as f:
+        json.dump(combined, f, ensure_ascii=False, indent=2, allow_nan=False)
 
-    print(f"✅ Success! Generated {len(combined)} enriched segments.")
+    print(f"✅ Success! Wrote data/morphology/enriched_data.json ({len(combined)} segment rows).")
 
 if __name__ == "__main__":
     fetch_and_combine_data()

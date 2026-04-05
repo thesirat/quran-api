@@ -225,6 +225,8 @@ export function clearCache(): void {
 // ---------------------------------------------------------------------------
 // Typed helpers
 // ---------------------------------------------------------------------------
+import { buildCorpusFromEnriched } from "./morphology-from-enriched.js";
+import type { EnrichedMorphologyRow } from "./morphology-from-enriched.js";
 import type {
   VerseMeta,
   WordData,
@@ -291,6 +293,30 @@ export async function loadScript(script: ScriptName): Promise<Record<string, str
 }
 
 const WORDS_ARABIC_RESOLVED_CACHE_KEY = "resolved:words-arabic";
+const ENRICHED_MORPH_RESOLVED_CACHE_KEY = "resolved:enriched-morphology";
+const ENRICHED_MORPHOLOGY_PATH = "data/morphology/enriched_data.json";
+
+async function readEnrichedMorphologyCorpus(): Promise<Record<string, { segments: MorphSegment[] }> | undefined> {
+  assertSafeDataRelPath(ENRICHED_MORPHOLOGY_PATH);
+  let raw: string | undefined;
+  if (isRemoteData()) {
+    raw = await tryReadDataTextFromRemote(ENRICHED_MORPHOLOGY_PATH);
+  } else {
+    try {
+      assertLocalCorpusFilesystemAllowed();
+      const abs = path.join(ROOT, ENRICHED_MORPHOLOGY_PATH);
+      raw = await fs.readFile(abs, "utf-8");
+    } catch (e) {
+      if (isNotFoundError(e)) return undefined;
+      throw e;
+    }
+  }
+  if (raw === undefined) return undefined;
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+  const corpus = buildCorpusFromEnriched(parsed as EnrichedMorphologyRow[]);
+  return Object.keys(corpus).length > 0 ? corpus : undefined;
+}
 
 /**
  * Prefer `data/words/arabic.json` when present; otherwise build the word map from QUL
@@ -321,9 +347,23 @@ export const loadWordTranslation = (lang: string) => {
   return tryLoadJson<Record<string, string>>(`data/words/translations/${lang}.json`);
 };
 
-/** Eager parse: keys are `surah:ayah:word`; lazy simdjson + `valueForKeyPath` is fragile for these routes. */
-export const loadCorpusMorphology = () =>
-  loadJson<Record<string, { segments: MorphSegment[] }>>("data/morphology/corpus.json");
+/**
+ * Sub-word morphology from `data/morphology/enriched_data.json` (MASAQ + mustafa segment rows),
+ * grouped at load time by `surah:ayah:word`.
+ */
+export async function loadCorpusMorphology(): Promise<Record<string, { segments: MorphSegment[] }>> {
+  if (cache.has(ENRICHED_MORPH_RESOLVED_CACHE_KEY)) {
+    return cache.get(ENRICHED_MORPH_RESOLVED_CACHE_KEY) as Record<string, { segments: MorphSegment[] }>;
+  }
+  const corpus = await readEnrichedMorphologyCorpus();
+  if (!corpus) {
+    throw new Error(
+      "Morphology data not available. Add data/morphology/enriched_data.json (run: python3 scripts/sync_morphology.py).",
+    );
+  }
+  cache.set(ENRICHED_MORPH_RESOLVED_CACHE_KEY, corpus);
+  return corpus;
+}
 
 export const loadQulMorphology = () =>
   tryLoadJson<Record<string, QulMorphWord>>("data/morphology/qul.json");

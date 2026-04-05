@@ -30,7 +30,7 @@ app.get("/", (c) =>
     name: "Quran API",
     version: "1.0.0",
     docs: "https://github.com/your-repo/quran-api",
-    sources: ["qul.tarteel.ai (MIT)", "corpus.quran.com (GPL)"],
+    sources: ["qul.tarteel.ai (MIT)", "mustafa0x/quran-morphology + MASAQ (GPL)"],
     data: getDataLoadingMeta(),
     endpoints: {
       // Verse
