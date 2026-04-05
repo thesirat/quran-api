@@ -227,6 +227,7 @@ export function clearCache(): void {
 // ---------------------------------------------------------------------------
 import { buildCorpusFromEnriched } from "./morphology-from-enriched.js";
 import type { EnrichedMorphologyRow } from "./morphology-from-enriched.js";
+import { buildMorphologySearchIndexesFromCorpus } from "./morphology-search-indexes.js";
 import type {
   VerseMeta,
   WordData,
@@ -294,6 +295,7 @@ export async function loadScript(script: ScriptName): Promise<Record<string, str
 
 const WORDS_ARABIC_RESOLVED_CACHE_KEY = "resolved:words-arabic";
 const ENRICHED_MORPH_RESOLVED_CACHE_KEY = "resolved:enriched-morphology";
+const MORPH_SEARCH_INDEXES_CACHE_KEY = "resolved:morph-search-indexes";
 const ENRICHED_MORPHOLOGY_PATH = "data/morphology/enriched_data.json";
 
 async function readEnrichedMorphologyCorpus(): Promise<Record<string, { segments: MorphSegment[] }> | undefined> {
@@ -365,17 +367,34 @@ export async function loadCorpusMorphology(): Promise<Record<string, { segments:
   return corpus;
 }
 
+/**
+ * Root / lemma word-key indexes derived from segment `root` and `lemma` in enriched morphology.
+ * Undefined if `enriched_data.json` is missing (same requirement as `loadCorpusMorphology`).
+ */
+export async function loadMorphologySearchIndexes(): Promise<
+  { byRoot: Record<string, string[]>; byLemma: Record<string, string[]> } | undefined
+> {
+  if (cache.has(MORPH_SEARCH_INDEXES_CACHE_KEY)) {
+    return cache.get(MORPH_SEARCH_INDEXES_CACHE_KEY) as {
+      byRoot: Record<string, string[]>;
+      byLemma: Record<string, string[]>;
+    };
+  }
+  try {
+    const corpus = await loadCorpusMorphology();
+    const built = buildMorphologySearchIndexesFromCorpus(corpus);
+    cache.set(MORPH_SEARCH_INDEXES_CACHE_KEY, built);
+    return built;
+  } catch {
+    return undefined;
+  }
+}
+
 export const loadQulMorphology = () =>
   tryLoadJson<Record<string, QulMorphWord>>("data/morphology/qul.json");
 
-export const loadRootsIndex = () =>
-  loadJsonLazy<Record<string, string[]>>("data/morphology/roots.json");
-
-export const loadLemmasIndex = () =>
-  tryLoadJsonLazy<Record<string, string[]>>("data/morphology/lemmas.json");
-
-export const loadPauseMarks = () =>
-  tryLoadJson<Record<string, string>>("data/morphology/pause-marks.json");
+/** Optional; omit file if you do not ship pause-mark metadata. */
+export const loadPauseMarks = () => tryLoadJson<Record<string, string>>("data/morphology/pause-marks.json");
 
 export const loadTranslation = (id: number | string) => {
   const seg = typeof id === "number" ? String(id) : id;

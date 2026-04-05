@@ -257,7 +257,7 @@ GET /v1/verse/2:255?translations=131,85&words=true
 
 #### `GET /v1/verse/:key/words`
 
-Returns all words of a verse.
+Returns all words of a verse. The **`pause_mark`** field is set only when optional **`data/morphology/pause-marks.json`** is present; otherwise it is omitted or `null`.
 
 **Query parameters**
 
@@ -705,9 +705,11 @@ Returns full morphological analysis for a single word: **sub-word segments** fro
 
 #### `GET /v1/search/root/:root`
 
-Returns all word keys in the Quran that share a given Arabic 3-letter root.
+Returns all word keys where **any sub-word segment** in **`data/morphology/enriched_data.json`** carries that **`root`** string (same source as morphology). Word keys are sorted by `surah:ayah:word`.
 
-**Path parameters**: `root` — URL-encoded Arabic root, e.g. `سمو`, `ذكر`, `رحم`.
+**Path parameters**: `root` — URL-encoded Arabic root, e.g. `سمو`, `ذكر`, `رحم`. Matching is **exact** on the segment `root` field (normalization is up to the client).
+
+Returns **`503`** with `type: "unavailable"` if **`enriched_data.json`** is not available.
 
 **Response**
 ```json
@@ -724,9 +726,11 @@ Returns all word keys in the Quran that share a given Arabic 3-letter root.
 
 #### `GET /v1/search/lemma/:lemma`
 
-Returns all word keys that share a given lemma (dictionary headword form).
+Returns all word keys where **any segment** has that **`lemma`** value in enriched morphology (same rules as root search: exact string match on segment `lemma`, index built from **`enriched_data.json`**).
 
 **Path parameters**: `lemma` — URL-encoded Arabic lemma.
+
+Returns **`503`** with `type: "unavailable"` if **`enriched_data.json`** is not available.
 
 ---
 

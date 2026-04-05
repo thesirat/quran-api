@@ -1,9 +1,5 @@
 import { Hono } from "hono";
-import {
-  loadRootsIndex,
-  loadLemmasIndex,
-  loadWordsArabic,
-} from "../core/loader.js";
+import { loadMorphologySearchIndexes, loadWordsArabic } from "../core/loader.js";
 
 const search = new Hono();
 
@@ -28,8 +24,19 @@ search.get("/root/:root", async (c) => {
   const root = decodeURIComponent(c.req.param("root")).trim();
   if (!root) return c.json({ status: 400, type: "invalid_param", title: "Root is required" }, 400);
 
-  const roots = await loadRootsIndex();
-  const keys = roots[root];
+  const indexes = await loadMorphologySearchIndexes();
+  if (!indexes) {
+    return c.json(
+      {
+        status: 503,
+        type: "unavailable",
+        title: "Morphology search not available",
+        detail: "Requires data/morphology/enriched_data.json (run: python3 scripts/sync_morphology.py).",
+      },
+      503,
+    );
+  }
+  const keys = indexes.byRoot[root];
   if (!keys || !keys.length) {
     return c.json({ status: 404, type: "not_found", title: "Root not found", detail: `No words found for root '${root}'` }, 404);
   }
@@ -47,10 +54,20 @@ search.get("/lemma/:lemma", async (c) => {
   const lemma = decodeURIComponent(c.req.param("lemma")).trim();
   if (!lemma) return c.json({ status: 400, type: "invalid_param", title: "Lemma is required" }, 400);
 
-  const lemmas = await loadLemmasIndex();
-  if (!lemmas) return c.json({ status: 503, type: "unavailable", title: "Lemma index not available" }, 503);
+  const indexes = await loadMorphologySearchIndexes();
+  if (!indexes) {
+    return c.json(
+      {
+        status: 503,
+        type: "unavailable",
+        title: "Morphology search not available",
+        detail: "Requires data/morphology/enriched_data.json (run: python3 scripts/sync_morphology.py).",
+      },
+      503,
+    );
+  }
 
-  const keys = lemmas[lemma];
+  const keys = indexes.byLemma[lemma];
   if (!keys || !keys.length) {
     return c.json({ status: 404, type: "not_found", title: "Lemma not found" }, 404);
   }
