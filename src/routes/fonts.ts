@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { fontMimeType, listFontResources, loadFontDetail, readFontFile } from "../core/loader.js";
+import { apiError } from "../core/errors.js";
 
 const fonts = new Hono();
 
@@ -14,7 +15,7 @@ fonts.get("/:id", async (c) => {
   const id = c.req.param("id");
   const detail = await loadFontDetail(id);
   if (!detail) {
-    return c.json({ status: 404, type: "not_found", title: "Font resource not found", detail: `No data/fonts/${id}/` }, 404);
+    return apiError(c, 404, "not_found", "Font resource not found", `No data/fonts/${id}/`);
   }
   return c.json({ data: detail });
 });
@@ -33,15 +34,7 @@ fonts.get("/:id/:filename", async (c) => {
   const filename = decodeFontPathParam(c.req.param("filename"));
   const buf = await readFontFile(id, filename);
   if (!buf) {
-    return c.json(
-      {
-        status: 404,
-        type: "not_found",
-        title: "Font file not found",
-        detail: `Missing or invalid file under fonts/${id}/`,
-      },
-      404
-    );
+    return apiError(c, 404, "not_found", "Font file not found", `Missing or invalid file under fonts/${id}/`);
   }
   const mime = fontMimeType(filename);
   return c.newResponse(new Uint8Array(buf), {

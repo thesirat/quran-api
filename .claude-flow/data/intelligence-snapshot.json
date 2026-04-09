@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": 1775742529318,
+    "nodes": 4,
+    "edges": 0,
+    "pageRankSum": 1,
+    "confidences": [
+      0.7000000000000002,
+      0.7000000000000002,
+      0.7000000000000002,
+      0.5
+    ],
+    "accessCounts": [
+      4,
+      4,
+      4,
+      0
+    ],
+    "topPatterns": [
+      {
+        "id": "mem-MEMORY-memory-index",
+        "summary": "Memory Index",
+        "confidence": 0.7000000000000002,
+        "pageRank": 0.25,
+        "accessCount": 4
+      },
+      {
+        "id": "mem-project_quran_api----",
+        "summary": "---",
+        "confidence": 0.7000000000000002,
+        "pageRank": 0.25,
+        "accessCount": 4
+      },
+      {
+        "id": "mem-project_arch_migration----",
+        "summary": "---",
+        "confidence": 0.7000000000000002,
+        "pageRank": 0.25,
+        "accessCount": 4
+      },
+      {
+        "id": "insight-1775742529317-8grp",
+        "summary": "Frequently edited: unknown (106x)",
+        "confidence": 0.5,
+        "pageRank": 0.25,
+        "accessCount": 0
+      }
+    ]
+  },
+  {
+    "timestamp": 1775743698074,
+    "nodes": 4,
+    "edges": 0,
+    "pageRankSum": 1,
+    "confidences": [
+      0.8500000000000003,
+      0.8500000000000003,
+      0.8500000000000003,
+      0.6500000000000001
+    ],
+    "accessCounts": [
+      7,
+      7,
+      7,
+      3
+    ],
+    "topPatterns": [
+      {
+        "id": "mem-MEMORY-memory-index",
+        "summary": "Memory Index",
+        "confidence": 0.8500000000000003,
+        "pageRank": 0.25,
+        "accessCount": 7
+      },
+      {
+        "id": "mem-project_quran_api----",
+        "summary": "---",
+        "confidence": 0.8500000000000003,
+        "pageRank": 0.25,
+        "accessCount": 7
+      },
+      {
+        "id": "mem-project_arch_migration----",
+        "summary": "---",
+        "confidence": 0.8500000000000003,
+        "pageRank": 0.25,
+        "accessCount": 7
+      },
+      {
+        "id": "insight-1775742529317-8grp",
+        "summary": "Frequently edited: unknown (106x)",
+        "confidence": 0.6500000000000001,
+        "pageRank": 0.25,
+        "accessCount": 3
+      }
+    ]
+  }
+]

@@ -1,7 +1,13 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, VALID_SCRIPTS, type ScriptName, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../core/loader.js";
+import { loadVerseMeta, loadTafsirChapter, loadTafsirCatalog, loadSurahInfo, loadSurahInfoCatalog } from "../core/loader.js";
 import { SURAH_NAMES } from "../core/surah-static.js";
 import type { SurahMeta, TafsirCatalogEntry, SurahInfoCatalogEntry } from "../core/types.js";
+import { apiError } from "../core/errors.js";
+import { validateSurah, validateScript, VALID_SCRIPTS } from "../core/validation.js";
+import { parsePagination } from "../core/pagination.js";
+import { parseFields, buildVerseList } from "../core/fields.js";
+import { getVerseKeysForSurah } from "../core/verse-indexes.js";
+import { parseSortParam, VERSE_SORT_FIELDS } from "../core/sorting.js";
 
 const surah = new Hono();
 
@@ -12,7 +18,7 @@ const surah = new Hono();
 surah.get("/", async (c) => {
   const rpParam = c.req.query("revelation_place")?.toLowerCase();
   if (rpParam && rpParam !== "mecca" && rpParam !== "medina") {
-    return c.json({ status: 400, type: "invalid_param", title: "revelation_place must be 'mecca' or 'medina'" }, 400);
+    return apiError(c, 400, "invalid_param", "revelation_place must be 'mecca' or 'medina'");
   }
 
   const verseMeta = await loadVerseMeta();
@@ -22,15 +28,13 @@ surah.get("/", async (c) => {
     const info = SURAH_NAMES[s];
     if (rpParam && info?.type !== rpParam) continue;
 
-    let count = 0;
+    const keys = await getVerseKeysForSurah(s);
     let firstPage: number | undefined;
     let lastPage: number | undefined;
-    for (let a = 1; a <= 300; a++) {
-      const vm = verseMeta[`${s}:${a}`];
-      if (!vm) break;
-      count++;
-      if (!firstPage) firstPage = vm.page;
-      lastPage = vm.page;
+    for (const key of keys) {
+      const vm = verseMeta[key];
+      if (!firstPage) firstPage = vm?.page;
+      lastPage = vm?.page;
     }
     result.push({
       id: s,
@@ -38,7 +42,7 @@ surah.get("/", async (c) => {
       name_simple: info?.transliteration ?? "",
       name_translation: info?.english,
       revelation_place: info?.type as "mecca" | "medina" | undefined,
-      verses_count: count,
+      verses_count: keys.length,
       pages: firstPage && lastPage ? [firstPage, lastPage] : undefined,
     });
   }
@@ -50,22 +54,11 @@ surah.get("/", async (c) => {
 // GET /v1/surah/:n  — surah info + verse keys
 // ---------------------------------------------------------------------------
 surah.get("/:n", async (c) => {
-  const n = Number(c.req.param("n"));
-  if (!Number.isInteger(n) || n < 1 || n > 114) {
-    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
-  }
+  const n = validateSurah(c.req.param("n"));
+  if (!n) return apiError(c, 400, "invalid_param", "Surah number must be 1-114");
 
-  const verseMeta = await loadVerseMeta();
   const info = SURAH_NAMES[n];
-  const verse_keys: string[] = [];
-  let firstPage: number | undefined;
-
-  for (let a = 1; a <= 300; a++) {
-    const key = `${n}:${a}`;
-    if (!verseMeta[key]) break;
-    verse_keys.push(key);
-    if (!firstPage) firstPage = verseMeta[key].page;
-  }
+  const verse_keys = await getVerseKeysForSurah(n);
 
   return c.json({
     data: {
@@ -84,33 +77,18 @@ surah.get("/:n", async (c) => {
 // GET /v1/surah/:n/verses  — paginated verse list
 // ---------------------------------------------------------------------------
 surah.get("/:n/verses", async (c) => {
-  const n = Number(c.req.param("n"));
-  if (!Number.isInteger(n) || n < 1 || n > 114) {
-    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
-  }
+  const n = validateSurah(c.req.param("n"));
+  if (!n) return apiError(c, 400, "invalid_param", "Surah number must be 1-114");
 
-  const limit = Math.min(Number(c.req.query("limit") ?? 286), 286);
-  const offset = Number(c.req.query("offset") ?? 0);
+  const script = validateScript(c.req.query("script"));
+  if (!script) return apiError(c, 400, "invalid_param", `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}`);
 
-  const scriptParam = c.req.query("script") ?? "uthmani";
-  if (!(VALID_SCRIPTS as readonly string[]).includes(scriptParam)) {
-    return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
-  }
-  const script = scriptParam as ScriptName;
-
-  const [verseMeta, scriptText] = await Promise.all([loadVerseMeta(), loadScript(script)]);
-
-  const all: string[] = [];
-  for (let a = 1; a <= 300; a++) {
-    if (!verseMeta[`${n}:${a}`]) break;
-    all.push(`${n}:${a}`);
-  }
-
+  const { limit, offset } = parsePagination(c, { defaultLimit: 286, maxLimit: 286 });
+  const fields = parseFields(c.req.query("fields"));
+  const sort = parseSortParam(c.req.query("sort"), VERSE_SORT_FIELDS);
+  const all = await getVerseKeysForSurah(n);
   const page = all.slice(offset, offset + limit);
-  const data = page.map((key) => {
-    const [s, a] = key.split(":").map(Number);
-    return { key, surah: s, ayah: a, text: scriptText[key] ?? "", meta: verseMeta[key] };
-  });
+  const data = await buildVerseList(page, script, fields, sort);
 
   return c.json({ data, meta: { total: all.length, limit, offset } });
 });
@@ -119,10 +97,8 @@ surah.get("/:n/verses", async (c) => {
 // GET /v1/surah/:n/tafsir/:id  — all tafsir entries for a surah
 // ---------------------------------------------------------------------------
 surah.get("/:n/tafsir/:id", async (c) => {
-  const n = Number(c.req.param("n"));
-  if (!Number.isInteger(n) || n < 1 || n > 114) {
-    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
-  }
+  const n = validateSurah(c.req.param("n"));
+  if (!n) return apiError(c, 400, "invalid_param", "Surah number must be 1-114");
 
   const tafsirId = c.req.param("id");
   const [chapter, catalog] = await Promise.all([
@@ -131,7 +107,7 @@ surah.get("/:n/tafsir/:id", async (c) => {
   ]);
 
   if (!chapter) {
-    return c.json({ status: 404, type: "not_found", title: "Tafsir not found", detail: `Tafsir ${tafsirId} has no data for surah ${n}` }, 404);
+    return apiError(c, 404, "not_found", "Tafsir not found", `Tafsir ${tafsirId} has no data for surah ${n}`);
   }
 
   const meta = catalog.find((t: TafsirCatalogEntry) => String(t.id) === tafsirId);
@@ -150,29 +126,23 @@ surah.get("/:n/tafsir/:id", async (c) => {
 // Query: ?lang=english (default "english")
 // ---------------------------------------------------------------------------
 surah.get("/:n/info", async (c) => {
-  const n = Number(c.req.param("n"));
-  if (!Number.isInteger(n) || n < 1 || n > 114) {
-    return c.json({ status: 400, type: "invalid_param", title: "Surah number must be 1–114" }, 400);
-  }
+  const n = validateSurah(c.req.param("n"));
+  if (!n) return apiError(c, 400, "invalid_param", "Surah number must be 1-114");
 
   const lang = c.req.query("lang") ?? "english";
   const catalog = await loadSurahInfoCatalog();
   const data = await loadSurahInfo(lang);
   if (!data) {
     const available = catalog ? catalog.map((e: SurahInfoCatalogEntry) => e.lang) : [];
-    return c.json(
-      {
-        status: 503,
-        type: "data_unavailable",
-        title: `Surah info for language '${lang}' not available`,
-        detail: available.length ? `Available languages: ${available.join(", ")}` : "Run scripts/scrape_qul.py --resources surah-info to generate it",
-      },
-      503
+    return apiError(
+      c, 503, "data_unavailable",
+      `Surah info for language '${lang}' not available`,
+      available.length ? `Available languages: ${available.join(", ")}` : "Run scripts/scrape_qul.py --resources surah-info to generate it",
     );
   }
 
   const entry = data[String(n)];
-  if (!entry) return c.json({ status: 404, type: "not_found", title: `No info found for surah ${n} in language '${lang}'` }, 404);
+  if (!entry) return apiError(c, 404, "not_found", `No info found for surah ${n} in language '${lang}'`);
 
   return c.json({ data: { surah: n, lang, ...entry } });
 });

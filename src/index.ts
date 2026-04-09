@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { analyticsMiddleware } from "./middleware/analytics.js";
 import { cacheMiddleware } from "./middleware/cache.js";
+import { compressMiddleware } from "./middleware/compress.js";
 import { corsMiddleware } from "./middleware/cors.js";
+import { loggerMiddleware } from "./middleware/logger.js";
+import { rateLimitMiddleware } from "./middleware/rate-limit.js";
+import { timeoutMiddleware } from "./middleware/timeout.js";
 import { verse } from "./routes/verse.js";
 import { surah } from "./routes/surah.js";
 import { collection } from "./routes/collection.js";
@@ -14,13 +18,25 @@ import { mushaf } from "./routes/mushaf.js";
 import { structure } from "./routes/structure.js";
 import { similarAyahs } from "./routes/similar-ayahs.js";
 import { fonts } from "./routes/fonts.js";
-import { getDataLoadingMeta } from "./core/loader.js";
+import { getDataLoadingMeta, loadVerseMeta } from "./core/loader.js";
+import { apiError } from "./core/errors.js";
+import { warmCache } from "./core/cache-warming.js";
+
+// ---------------------------------------------------------------------------
+// Cache warming: pre-load frequently accessed data on cold start (fire-and-forget).
+// Configure depth via WARM_CACHE_LEVEL env ("minimal" | "standard", default "standard").
+// ---------------------------------------------------------------------------
+void warmCache();
 
 const app = new Hono();
 
+app.use("*", rateLimitMiddleware);
+app.use("*", loggerMiddleware);
 app.use("*", corsMiddleware);
 app.use("*", cacheMiddleware);
+app.use("*", compressMiddleware);
 app.use("*", analyticsMiddleware);
+app.use("*", timeoutMiddleware());
 
 // ---------------------------------------------------------------------------
 // Health + meta
@@ -89,9 +105,24 @@ app.get("/", (c) =>
       font_file: "/v1/fonts/:id/:filename",
       // Structure
       structure: "/v1/structure",
+      // Health
+      health: "/v1/health",
     },
   })
 );
+
+// ---------------------------------------------------------------------------
+// Health check
+// ---------------------------------------------------------------------------
+app.get("/v1/health", async (c) => {
+  try {
+    const verseMeta = await loadVerseMeta();
+    const verseCount = Object.keys(verseMeta).length;
+    return c.json({ status: "ok", data_mode: getDataLoadingMeta().mode, verse_count: verseCount });
+  } catch {
+    return c.json({ status: "error", data_mode: getDataLoadingMeta().mode, verse_count: 0 }, 503);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -113,13 +144,12 @@ app.route("/v1", structure);          // /v1/structure
 // ---------------------------------------------------------------------------
 // 404 catch-all
 // ---------------------------------------------------------------------------
-app.notFound((c) =>
-  c.json({ status: 404, type: "not_found", title: "Endpoint not found" }, 404)
-);
+app.notFound((c) => apiError(c, 404, "not_found", "Endpoint not found"));
 
 app.onError((err, c) => {
   console.error(err);
-  return c.json({ status: 500, type: "internal_error", title: "Internal server error" }, 500);
+  const isDataError = err.message?.includes("not available") || err.message?.includes("DATA_BASE_URL");
+  return apiError(c, isDataError ? 503 : 500, isDataError ? "data_unavailable" : "internal_error", isDataError ? "Data source unavailable" : "Internal server error");
 });
 
 export default app;

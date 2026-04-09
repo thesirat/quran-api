@@ -302,3 +302,30 @@ export interface SimilarAyahPair {
   similar_key: string;
   score?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sorting
+// ---------------------------------------------------------------------------
+export type SortDirection = "asc" | "desc";
+
+export interface SortSpec {
+  field: string;
+  direction: SortDirection;
+}
+
+// ---------------------------------------------------------------------------
+// Generic response helpers
+// ---------------------------------------------------------------------------
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
+/** Typed verse list item returned by buildVerseList / buildVerseMap. */
+export interface VerseListItem {
+  key?: string;
+  surah?: number;
+  ayah?: number;
+  text?: string;
+  meta?: VerseMeta;
+}

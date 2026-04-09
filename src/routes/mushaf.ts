@@ -1,47 +1,37 @@
 import { Hono } from "hono";
-import { loadVerseMeta, loadScript, loadMushafPages, VALID_SCRIPTS, type ScriptName } from "../core/loader.js";
+import { loadVerseMeta, loadScript, loadMushafPages } from "../core/loader.js";
+import { getVerseKeysByField } from "../core/verse-indexes.js";
+import { apiError } from "../core/errors.js";
+import { validateRange, validateScript, VALID_SCRIPTS } from "../core/validation.js";
 
 const mushaf = new Hono();
 
 // ---------------------------------------------------------------------------
-// GET /v1/mushaf/:n  (1–604)
+// GET /v1/mushaf/:n  (1-604)
 // Query: ?script=uthmani|simple|indopak|tajweed|qpc-hafs
 // ---------------------------------------------------------------------------
 mushaf.get("/mushaf/:n", async (c) => {
-  const n = Number(c.req.param("n"));
-  if (!Number.isInteger(n) || n < 1 || n > 604) {
-    return c.json({ status: 400, type: "invalid_param", title: "Page must be 1–604" }, 400);
-  }
+  const n = validateRange(c.req.param("n"), 1, 604);
+  if (!n) return apiError(c, 400, "invalid_param", "Page must be 1-604");
 
-  const scriptParam = c.req.query("script") ?? "uthmani";
-  if (!(VALID_SCRIPTS as readonly string[]).includes(scriptParam)) {
-    return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
-  }
-  const script = scriptParam as ScriptName;
+  const script = validateScript(c.req.query("script"));
+  if (!script) return apiError(c, 400, "invalid_param", `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}`);
 
-  const [mushafPages, verseMeta, scriptText] = await Promise.all([
+  const [mushafPages, verseMeta, scriptText, verseKeys] = await Promise.all([
     loadMushafPages(),
     loadVerseMeta(),
     loadScript(script),
+    getVerseKeysByField("page", n),
   ]);
 
   if (!mushafPages) {
-    return c.json({ status: 503, type: "data_unavailable", title: "Mushaf page data not available" }, 503);
+    return apiError(c, 503, "data_unavailable", "Mushaf page data not available");
   }
 
   const pageLayout = mushafPages[String(n)];
   if (!pageLayout) {
-    return c.json({ status: 404, type: "not_found", title: `No mushaf data for page ${n}` }, 404);
+    return apiError(c, 404, "not_found", `No mushaf data for page ${n}`);
   }
-
-  const verseKeys = (Object.entries(verseMeta) as [string, import("../core/types.js").VerseMeta][])
-    .filter(([, v]) => v.page === n)
-    .sort(([a], [b]) => {
-      const [as_, aa] = a.split(":").map(Number);
-      const [bs, ba] = b.split(":").map(Number);
-      return as_ - bs || aa - ba;
-    })
-    .map(([key]) => key);
 
   const verses = verseKeys.map((key) => {
     const [s, a] = key.split(":").map(Number);

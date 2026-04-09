@@ -13,6 +13,11 @@ import type {
   TafsirCatalogEntry,
   RecitationEntry,
 } from "../core/types.js";
+import { apiError } from "../core/errors.js";
+import { parsePagination, paginate } from "../core/pagination.js";
+import { parseSortParam, applySorting } from "../core/sorting.js";
+
+const CATALOG_SORT_FIELDS: ReadonlySet<string> = new Set(["id", "name", "language"]);
 
 const catalog = new Hono();
 
@@ -23,29 +28,36 @@ const catalog = new Hono();
 catalog.get("/translations", async (c) => {
   const all = await loadTranslationCatalog();
   const langFilter = c.req.query("language")?.toLowerCase();
-  const data = langFilter
+  let filtered = langFilter
     ? all.filter((t: TranslationCatalogEntry) => t.language?.toLowerCase().includes(langFilter))
     : all;
-  return c.json({ data, meta: { total: data.length } });
+  const sort = parseSortParam(c.req.query("sort"), CATALOG_SORT_FIELDS);
+  if (sort) filtered = applySorting(filtered, sort);
+  const { limit, offset } = parsePagination(c, { defaultLimit: 1000, maxLimit: 1000 });
+  const { data, meta } = paginate(filtered, limit, offset);
+  return c.json({ data, meta });
 });
 
 // ---------------------------------------------------------------------------
 // GET /v1/tafsirs
-// Optional query: ?language=turkish  (case-insensitive substring match)
-//                 ?type=mukhtasar|detailed
+// Optional query: ?language=turkish  ?type=mukhtasar|detailed
 // ---------------------------------------------------------------------------
 catalog.get("/tafsirs", async (c) => {
   const all = await loadTafsirCatalog();
   const langFilter = c.req.query("language")?.toLowerCase();
   const typeFilter = c.req.query("type")?.toLowerCase();
 
-  const data = all.filter((t: TafsirCatalogEntry) => {
+  let filtered = all.filter((t: TafsirCatalogEntry) => {
     if (langFilter && !t.language?.toLowerCase().includes(langFilter)) return false;
     if (typeFilter && t.type !== typeFilter) return false;
     return true;
   });
 
-  return c.json({ data, meta: { total: data.length } });
+  const sort = parseSortParam(c.req.query("sort"), CATALOG_SORT_FIELDS);
+  if (sort) filtered = applySorting(filtered, sort);
+  const { limit, offset } = parsePagination(c, { defaultLimit: 1000, maxLimit: 1000 });
+  const { data, meta } = paginate(filtered, limit, offset);
+  return c.json({ data, meta });
 });
 
 // ---------------------------------------------------------------------------
@@ -55,7 +67,7 @@ catalog.get("/tafsirs/:id", async (c) => {
   const id = c.req.param("id");
   const all = await loadTafsirCatalog();
   const entry = all.find((t: TafsirCatalogEntry) => String(t.id) === id);
-  if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
+  if (!entry) return apiError(c, 404, "not_found", "Tafsir not found");
   return c.json({ data: entry });
 });
 
@@ -66,7 +78,7 @@ catalog.get("/tafsirs/:id/surahs", async (c) => {
   const id = c.req.param("id");
   const all = await loadTafsirCatalog();
   const entry = all.find((t: TafsirCatalogEntry) => String(t.id) === id);
-  if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir not found" }, 404);
+  if (!entry) return apiError(c, 404, "not_found", "Tafsir not found");
 
   const checks = await Promise.all(
     Array.from({ length: 114 }, (_, i) => i + 1).map(async (s) => {
@@ -81,13 +93,15 @@ catalog.get("/tafsirs/:id/surahs", async (c) => {
 
 // ---------------------------------------------------------------------------
 // GET /v1/recitations
-// Optional query: ?segmented=true  → only return recitations with timestamps
+// Optional query: ?segmented=true
 // ---------------------------------------------------------------------------
 catalog.get("/recitations", async (c) => {
   const all = await loadRecitations();
   const segmentedOnly = c.req.query("segmented") === "true";
-  const data = segmentedOnly ? all.filter((r: RecitationEntry) => (r.segments_count ?? 0) > 0) : all;
-  return c.json({ data, meta: { total: data.length } });
+  const filtered = segmentedOnly ? all.filter((r: RecitationEntry) => (r.segments_count ?? 0) > 0) : all;
+  const { limit, offset } = parsePagination(c, { defaultLimit: 1000, maxLimit: 1000 });
+  const { data, meta } = paginate(filtered, limit, offset);
+  return c.json({ data, meta });
 });
 
 // ---------------------------------------------------------------------------
@@ -96,10 +110,7 @@ catalog.get("/recitations", async (c) => {
 catalog.get("/word-translations", async (c) => {
   const data = await loadWordTranslationCatalog();
   if (!data) {
-    return c.json(
-      { status: 503, type: "data_unavailable", title: "Word translation catalog not available", detail: "Run scripts/scrape_qul.py to generate it" },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", "Word translation catalog not available", "Run scripts/scrape_qul.py to generate it");
   }
   return c.json({ data, meta: { total: data.length } });
 });
@@ -110,10 +121,7 @@ catalog.get("/word-translations", async (c) => {
 catalog.get("/transliterations", async (c) => {
   const data = await loadTransliterationCatalog();
   if (!data) {
-    return c.json(
-      { status: 503, type: "data_unavailable", title: "Transliteration catalog not available", detail: "Run scripts/scrape_qul.py --resources transliteration to generate it" },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", "Transliteration catalog not available", "Run scripts/scrape_qul.py --resources transliteration to generate it");
   }
   return c.json({ data, meta: { total: data.length } });
 });
@@ -124,18 +132,17 @@ catalog.get("/transliterations", async (c) => {
 catalog.get("/ayah-themes", async (c) => {
   const allThemes = await loadAyahThemes();
   if (!allThemes) {
-    return c.json(
-      { status: 503, type: "data_unavailable", title: "Ayah themes not available", detail: "Run scripts/scrape_qul.py --resources ayah-themes to generate it" },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", "Ayah themes not available", "Run scripts/scrape_qul.py --resources ayah-themes to generate it");
   }
 
-  const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
-  const offset = Number(c.req.query("offset") ?? 0);
-
+  const { limit, offset } = parsePagination(c, { defaultLimit: 200, maxLimit: 1000 });
   const entries = Object.entries(allThemes);
-  const page = entries.slice(offset, offset + limit).map(([verse_key, themes]) => ({ verse_key, themes }));
-  return c.json({ data: page, meta: { total: entries.length, limit, offset } });
+  const { data: page, meta } = paginate(
+    entries.map(([verse_key, themes]) => ({ verse_key, themes })),
+    limit,
+    offset,
+  );
+  return c.json({ data: page, meta });
 });
 
 export { catalog };

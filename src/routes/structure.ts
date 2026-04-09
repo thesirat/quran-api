@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { loadStructureMeta } from "../core/loader.js";
+import { apiError } from "../core/errors.js";
 
 const structure = new Hono();
 
@@ -11,15 +12,7 @@ structure.get("/structure", async (c) => {
   try {
     data = await loadStructureMeta();
   } catch {
-    return c.json(
-      {
-        status: 503,
-        type: "data_unavailable",
-        title: "Structure metadata not available",
-        detail: "Requires data/verses/meta.json from QUL (scripts/scrape_qul.py — quran-metadata).",
-      },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", "Structure metadata not available", "Requires data/verses/meta.json from QUL (scripts/scrape_qul.py — quran-metadata).");
   }
   return c.json({ data });
 });

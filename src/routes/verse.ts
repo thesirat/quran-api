@@ -2,8 +2,6 @@ import { Hono } from "hono";
 import {
   loadVerseMeta,
   loadScript,
-  VALID_SCRIPTS,
-  type ScriptName,
   loadWordsArabic,
   loadWordTranslation,
   loadCorpusMorphology,
@@ -16,81 +14,85 @@ import {
   loadAyahThemes,
 } from "../core/loader.js";
 import type { VerseData, WordData, TranslationEntry, TafsirAyah, RecitationEntry } from "../core/types.js";
+import { apiError } from "../core/errors.js";
+import { validateVerseKey, validateScript, VALID_SCRIPTS } from "../core/validation.js";
 
 const verse = new Hono();
-
-// ---------------------------------------------------------------------------
-// Parse and validate a verse key like "2:255"
-// ---------------------------------------------------------------------------
-function parseKey(raw: string): { surah: number; ayah: number } | null {
-  const parts = raw.split(":");
-  if (parts.length !== 2) return null;
-  const [s, a] = parts.map(Number);
-  if (!Number.isInteger(s) || !Number.isInteger(a) || s < 1 || s > 114 || a < 1) return null;
-  return { surah: s, ayah: a };
-}
 
 // ---------------------------------------------------------------------------
 // GET /v1/verse/:key
 // Query: ?translations=131,85 &words=true &morphology=true &tafsir=140 &script=uthmani
 // ---------------------------------------------------------------------------
 verse.get("/:key", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const { surah, ayah } = parsed;
   const key = `${surah}:${ayah}`;
 
-  const scriptParam = c.req.query("script") ?? "uthmani";
-  if (!(VALID_SCRIPTS as readonly string[]).includes(scriptParam)) {
-    return c.json({ status: 400, type: "invalid_param", title: `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}` }, 400);
+  const script = validateScript(c.req.query("script"));
+  if (!script) {
+    return apiError(c, 400, "invalid_param", `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}`);
   }
-  const script = scriptParam as ScriptName;
 
   const [verseMeta, scriptText] = await Promise.all([loadVerseMeta(), loadScript(script)]);
 
   const meta = verseMeta[key];
   const text = scriptText[key];
   if (!meta || text === undefined) {
-    return c.json({ status: 404, type: "not_found", title: "Verse not found", detail: `Key '${key}' does not exist` }, 404);
+    return apiError(c, 404, "not_found", "Verse not found", `Key '${key}' does not exist`);
   }
 
   const result: VerseData = { key, surah, ayah, text, meta };
 
-  // Optional: embed words
   const q = c.req.query();
+
+  // Optional: embed words
   if (q.words === "true") {
     result.words = await buildWords(key, meta.words_count, q.lang);
   }
 
-  // Optional: embed translations
+  // Optional: embed translations (graceful partial on failure)
   if (q.translations) {
     const ids = q.translations.split(",").map((s) => s.trim()).filter(Boolean);
-    const entries = await Promise.all(ids.map((id) => loadTranslation(id)));
     result.translations = {};
+    const entries = await Promise.allSettled(ids.map((id) => loadTranslation(id)));
     for (let i = 0; i < ids.length; i++) {
-      const t = entries[i]?.[key];
-      if (t) result.translations[ids[i]] = t;
+      const entry = entries[i];
+      if (entry.status === "fulfilled") {
+        const t = entry.value?.[key];
+        if (t) result.translations[ids[i]] = t;
+      } else {
+        result.translations[ids[i]] = { text: "", _error: "unavailable" } as unknown as TranslationEntry;
+      }
     }
   }
 
-  // Optional: embed morphology
+  // Optional: embed morphology (graceful on failure)
   if (q.morphology === "true") {
-    const corpus = await loadCorpusMorphology();
-    result.morphology = {};
-    for (let w = 1; w <= meta.words_count; w++) {
-      const wk = `${key}:${w}`;
-      const entry = corpus[wk];
-      if (entry) result.morphology[wk] = entry.segments;
+    try {
+      const corpus = await loadCorpusMorphology();
+      result.morphology = {};
+      for (let w = 1; w <= meta.words_count; w++) {
+        const wk = `${key}:${w}`;
+        const entry = corpus[wk];
+        if (entry) result.morphology[wk] = entry.segments;
+      }
+    } catch {
+      // morphology unavailable — omit silently
     }
   }
 
-  // Optional: embed one tafsir
+  // Optional: embed one tafsir (graceful on failure)
   if (q.tafsir) {
-    const chapter = await loadTafsirChapter(q.tafsir, surah);
-    const ayahEntry = chapter?.ayahs.find((a: TafsirAyah) => a.ayah === ayah);
-    if (ayahEntry) {
-      (result as unknown as Record<string, unknown>).tafsir = { id: q.tafsir, text: ayahEntry.text };
+    try {
+      const chapter = await loadTafsirChapter(q.tafsir, surah);
+      const ayahEntry = chapter?.ayahs.find((a: TafsirAyah) => a.ayah === ayah);
+      if (ayahEntry) {
+        (result as unknown as Record<string, unknown>).tafsir = { id: q.tafsir, text: ayahEntry.text };
+      }
+    } catch {
+      // tafsir unavailable — omit silently
     }
   }
 
@@ -101,13 +103,13 @@ verse.get("/:key", async (c) => {
 // GET /v1/verse/:key/words
 // ---------------------------------------------------------------------------
 verse.get("/:key/words", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const { surah, ayah } = parsed;
   const key = `${surah}:${ayah}`;
   const meta = (await loadVerseMeta())[key];
-  if (!meta) return c.json({ status: 404, type: "not_found", title: "Verse not found" }, 404);
+  if (!meta) return apiError(c, 404, "not_found", "Verse not found");
 
   const lang = c.req.query("lang");
   const words = await buildWords(key, meta.words_count, lang);
@@ -118,12 +120,12 @@ verse.get("/:key/words", async (c) => {
 // GET /v1/verse/:key/morphology
 // ---------------------------------------------------------------------------
 verse.get("/:key/morphology", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const key = `${parsed.surah}:${parsed.ayah}`;
   const [meta, corpus] = await Promise.all([loadVerseMeta(), loadCorpusMorphology()]);
-  if (!meta[key]) return c.json({ status: 404, type: "not_found", title: "Verse not found" }, 404);
+  if (!meta[key]) return apiError(c, 404, "not_found", "Verse not found");
 
   const result: Record<string, unknown> = {};
   for (let w = 1; w <= meta[key].words_count; w++) {
@@ -137,8 +139,8 @@ verse.get("/:key/morphology", async (c) => {
 // GET /v1/verse/:key/translations?ids=131,85
 // ---------------------------------------------------------------------------
 verse.get("/:key/translations", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const key = `${parsed.surah}:${parsed.ayah}`;
   const idsParam = c.req.query("ids");
@@ -162,16 +164,16 @@ verse.get("/:key/translations", async (c) => {
 // GET /v1/verse/:key/tafsir/:id
 // ---------------------------------------------------------------------------
 verse.get("/:key/tafsir/:id", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const { surah, ayah } = parsed;
   const tafsirId = c.req.param("id");
   const chapter = await loadTafsirChapter(tafsirId, surah);
-  if (!chapter) return c.json({ status: 404, type: "not_found", title: "Tafsir not found", detail: `Tafsir ${tafsirId} has no data for surah ${surah}` }, 404);
+  if (!chapter) return apiError(c, 404, "not_found", "Tafsir not found", `Tafsir ${tafsirId} has no data for surah ${surah}`);
 
   const entry = chapter.ayahs.find((a: TafsirAyah) => a.ayah === ayah);
-  if (!entry) return c.json({ status: 404, type: "not_found", title: "Tafsir entry not found" }, 404);
+  if (!entry) return apiError(c, 404, "not_found", "Tafsir entry not found");
 
   return c.json({ data: entry });
 });
@@ -180,8 +182,8 @@ verse.get("/:key/tafsir/:id", async (c) => {
 // GET /v1/verse/:key/audio
 // ---------------------------------------------------------------------------
 verse.get("/:key/audio", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const { surah, ayah } = parsed;
   const recitations = await loadRecitations();
@@ -210,16 +212,16 @@ verse.get("/:key/audio", async (c) => {
 // GET /v1/verse/:key/timestamps/:recitationId
 // ---------------------------------------------------------------------------
 verse.get("/:key/timestamps/:recitationId", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const key = `${parsed.surah}:${parsed.ayah}`;
   const rid = c.req.param("recitationId");
   const segments = await loadAudioSegments(rid);
-  if (!segments) return c.json({ status: 404, type: "not_found", title: "Recitation not found" }, 404);
+  if (!segments) return apiError(c, 404, "not_found", "Recitation not found");
 
   const entry = segments[key];
-  if (!entry) return c.json({ status: 404, type: "not_found", title: "Timestamps not found for this verse" }, 404);
+  if (!entry) return apiError(c, 404, "not_found", "Timestamps not found for this verse");
 
   return c.json({ data: { verse_key: key, recitation_id: rid, segments: entry } });
 });
@@ -229,21 +231,18 @@ verse.get("/:key/timestamps/:recitationId", async (c) => {
 // Query: ?lang=en (default "en")
 // ---------------------------------------------------------------------------
 verse.get("/:key/transliteration", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const key = `${parsed.surah}:${parsed.ayah}`;
   const lang = c.req.query("lang") ?? "en";
   const data = await loadTransliteration(lang);
   if (!data) {
-    return c.json(
-      { status: 503, type: "data_unavailable", title: `Transliteration for '${lang}' not available`, detail: "Run scripts/scrape_qul.py --resources transliteration to generate it" },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", `Transliteration for '${lang}' not available`, "Run scripts/scrape_qul.py --resources transliteration to generate it");
   }
 
   const text = data[key];
-  if (text === undefined) return c.json({ status: 404, type: "not_found", title: "Transliteration not found for this verse" }, 404);
+  if (text === undefined) return apiError(c, 404, "not_found", "Transliteration not found for this verse");
 
   return c.json({ data: { verse_key: key, lang, text } });
 });
@@ -252,16 +251,13 @@ verse.get("/:key/transliteration", async (c) => {
 // GET /v1/verse/:key/theme
 // ---------------------------------------------------------------------------
 verse.get("/:key/theme", async (c) => {
-  const parsed = parseKey(c.req.param("key"));
-  if (!parsed) return c.json({ status: 400, type: "invalid_key", title: "Invalid verse key" }, 400);
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Invalid verse key");
 
   const key = `${parsed.surah}:${parsed.ayah}`;
   const allThemes = await loadAyahThemes();
   if (!allThemes) {
-    return c.json(
-      { status: 503, type: "data_unavailable", title: "Ayah themes not available", detail: "Run scripts/scrape_qul.py --resources ayah-themes to generate it" },
-      503
-    );
+    return apiError(c, 503, "data_unavailable", "Ayah themes not available", "Run scripts/scrape_qul.py --resources ayah-themes to generate it");
   }
 
   const themes = allThemes[key] ?? [];

@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { loadMutashabihat } from "../core/loader.js";
+import type { MutashabihatPair, VerseListItem } from "../core/types.js";
+import { apiError } from "../core/errors.js";
+import { validateVerseKey, validateScript, VALID_SCRIPTS } from "../core/validation.js";
+import { parsePagination, paginate } from "../core/pagination.js";
+import { buildVerseMap } from "../core/fields.js";
+import type { ScriptName } from "../core/loaders/quran.js";
 
 const mutashabihat = new Hono();
 
@@ -7,17 +13,25 @@ const mutashabihat = new Hono();
 // GET /v1/mutashabihat/:key  — similar phrases to a verse key
 // ---------------------------------------------------------------------------
 mutashabihat.get("/:key", async (c) => {
-  const key = c.req.param("key");
-  if (!key.match(/^\d+:\d+$/)) {
-    return c.json({ status: 400, type: "invalid_key", title: "Key must be surah:ayah" }, 400);
-  }
+  const parsed = validateVerseKey(c.req.param("key"));
+  if (!parsed) return apiError(c, 400, "invalid_key", "Key must be surah:ayah");
 
+  const key = `${parsed.surah}:${parsed.ayah}`;
   const all = await loadMutashabihat();
   if (!all) {
-    return c.json({ status: 503, type: "unavailable", title: "Mutashabihat data not available" }, 503);
+    return apiError(c, 503, "unavailable", "Mutashabihat data not available");
   }
 
   const pairs = all.filter((p) => p.verse_key === key || p.matched_key === key);
+
+  const expand = c.req.query("expand") === "true";
+  if (expand) {
+    const script = validateScript(c.req.query("script"));
+    if (!script) return apiError(c, 400, "invalid_param", `Unknown script. Valid: ${VALID_SCRIPTS.join(", ")}`);
+    const expanded = await expandPairs(pairs, script as ScriptName);
+    return c.json({ data: expanded, meta: { verse_key: key, total: expanded.length } });
+  }
+
   return c.json({ data: pairs, meta: { verse_key: key, total: pairs.length } });
 });
 
@@ -25,18 +39,27 @@ mutashabihat.get("/:key", async (c) => {
 // GET /v1/mutashabihat  — full list (paginated)
 // ---------------------------------------------------------------------------
 mutashabihat.get("/", async (c) => {
-  const limit = Math.min(Number(c.req.query("limit") ?? 100), 500);
-  const offset = Number(c.req.query("offset") ?? 0);
-
   const all = await loadMutashabihat();
   if (!all) {
-    return c.json({ status: 503, type: "unavailable", title: "Mutashabihat data not available" }, 503);
+    return apiError(c, 503, "unavailable", "Mutashabihat data not available");
   }
 
-  return c.json({
-    data: all.slice(offset, offset + limit),
-    meta: { total: all.length, limit, offset },
-  });
+  const { limit, offset } = parsePagination(c, { defaultLimit: 100, maxLimit: 500 });
+  const { data, meta } = paginate(all, limit, offset);
+  return c.json({ data, meta });
 });
+
+async function expandPairs(
+  pairs: MutashabihatPair[],
+  script: ScriptName,
+): Promise<(MutashabihatPair & { verse?: VerseListItem; matched_verse?: VerseListItem })[]> {
+  const allKeys = [...new Set(pairs.flatMap((p) => [p.verse_key, p.matched_key]))];
+  const verseMap = await buildVerseMap(allKeys, script);
+  return pairs.map((p) => ({
+    ...p,
+    verse: verseMap.get(p.verse_key),
+    matched_verse: verseMap.get(p.matched_key),
+  }));
+}
 
 export { mutashabihat };

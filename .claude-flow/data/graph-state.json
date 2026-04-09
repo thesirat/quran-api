@@ -1,34 +1,42 @@
 {
   "version": 1,
-  "updatedAt": 1775734934126,
-  "nodeCount": 3,
+  "updatedAt": 1775743698074,
+  "nodeCount": 4,
   "nodes": {
     "mem-MEMORY-memory-index": {
       "id": "mem-MEMORY-memory-index",
       "category": "core",
-      "confidence": 0.5,
-      "accessCount": 0,
+      "confidence": 1,
+      "accessCount": 11,
       "createdAt": 1775734934124
     },
     "mem-project_quran_api----": {
       "id": "mem-project_quran_api----",
       "category": "project_quran_api",
-      "confidence": 0.5,
-      "accessCount": 0,
+      "confidence": 1,
+      "accessCount": 11,
       "createdAt": 1775734934124
     },
     "mem-project_arch_migration----": {
       "id": "mem-project_arch_migration----",
       "category": "project_arch_migration",
-      "confidence": 0.5,
-      "accessCount": 0,
+      "confidence": 1,
+      "accessCount": 11,
       "createdAt": 1775734934125
+    },
+    "insight-1775742529317-8grp": {
+      "id": "insight-1775742529317-8grp",
+      "category": "insights",
+      "confidence": 0.8500000000000003,
+      "accessCount": 7,
+      "createdAt": 1775742529317
     }
   },
   "edges": [],
   "pageRanks": {
-    "mem-MEMORY-memory-index": 0.3333333333333333,
-    "mem-project_quran_api----": 0.3333333333333333,
-    "mem-project_arch_migration----": 0.3333333333333333
+    "mem-MEMORY-memory-index": 0.25,
+    "mem-project_quran_api----": 0.25,
+    "mem-project_arch_migration----": 0.25,
+    "insight-1775742529317-8grp": 0.25
   }
 }
