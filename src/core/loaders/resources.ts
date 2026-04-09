@@ -36,10 +36,34 @@ import type {
 // Translations
 // ---------------------------------------------------------------------------
 
-export const loadTranslation = (id: number | string) => {
+interface RawTranslationEntry {
+  t?: string;
+  text?: string;
+  f?: Record<string, string>;
+  footnotes?: { id: number; text: string }[];
+}
+
+function normalizeTranslation(raw: Record<string, RawTranslationEntry>): Record<string, TranslationEntry> {
+  const out: Record<string, TranslationEntry> = {};
+  for (const [key, v] of Object.entries(raw)) {
+    if (!v || typeof v !== "object") continue;
+    const text = v.text ?? v.t ?? "";
+    const entry: TranslationEntry = { text };
+    if (v.footnotes) {
+      entry.footnotes = v.footnotes;
+    } else if (v.f) {
+      entry.footnotes = Object.entries(v.f).map(([id, ft]) => ({ id: Number(id), text: ft }));
+    }
+    out[key] = entry;
+  }
+  return out;
+}
+
+export const loadTranslation = async (id: number | string): Promise<Record<string, TranslationEntry> | null> => {
   const seg = typeof id === "number" ? String(id) : id;
   assertSafeResourceSegment(seg, "translation id");
-  return tryLoadJson<Record<string, TranslationEntry>>(`data/translations/${seg}.json`);
+  const raw = await tryLoadJson<Record<string, RawTranslationEntry>>(`data/translations/${seg}.json`);
+  return raw ? normalizeTranslation(raw) : null;
 };
 
 export const loadTranslationCatalog = async (): Promise<TranslationCatalogEntry[]> => {
