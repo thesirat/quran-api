@@ -1,6 +1,6 @@
-import { loadVerseMeta, loadScript, loadTranslation } from "./loader.js";
+import { loadVerseMeta, loadScript, loadTranslation, loadWordsArabic, loadWordTranslation, loadPauseMarks } from "./loader.js";
 import type { ScriptName } from "./loaders/quran.js";
-import type { SortSpec, TranslationEntry, VerseListItem } from "./types.js";
+import type { SortSpec, TranslationEntry, VerseListItem, WordData } from "./types.js";
 import { applySorting } from "./sorting.js";
 
 export const ALL_VERSE_FIELDS = new Set(["key", "surah", "ayah", "text", "meta"]);
@@ -16,6 +16,8 @@ export function parseFields(raw: string | undefined, allowed: Set<string> = ALL_
 
 export interface BuildVerseOptions {
   translationIds?: string[];
+  words?: boolean;
+  lang?: string;
 }
 
 /**
@@ -31,10 +33,14 @@ export async function buildVerseMap(
   const needText = !fields || fields.has("text");
   const needMeta = !fields || fields.has("meta");
   const tIds = options?.translationIds;
+  const needWords = options?.words === true;
 
-  const [meta, text, ...translationMaps] = await Promise.all([
+  const [meta, text, wordsArabic, pauseMarks, wordTranslation, ...translationMaps] = await Promise.all([
     loadVerseMeta(),
     needText ? loadScript(script) : Promise.resolve(null),
+    needWords ? loadWordsArabic() : Promise.resolve(null),
+    needWords ? loadPauseMarks() : Promise.resolve(null),
+    needWords && options?.lang ? loadWordTranslation(options.lang) : Promise.resolve(undefined),
     ...(tIds ?? []).map((id) => loadTranslation(id).catch(() => null)),
   ]);
 
@@ -48,6 +54,28 @@ export async function buildVerseMap(
     if (!fields || fields.has("ayah")) item.ayah = a;
     if (needText) item.text = text?.[key] ?? "";
     if (needMeta) item.meta = meta[key];
+    if (needWords && meta[key]) {
+      const words: WordData[] = [];
+      for (let w = 1; w <= meta[key].words_count; w++) {
+        const wk = `${key}:${w}`;
+        const raw = wordsArabic?.[wk];
+        if (!raw) continue;
+        words.push({
+          key: wk,
+          text: raw.text,
+          text_indopak: raw.text_indopak ?? undefined,
+          code_v1: raw.code_v1 ?? undefined,
+          code_v2: raw.code_v2 ?? undefined,
+          position: raw.position ?? w,
+          page: raw.page ?? undefined,
+          line: raw.line ?? undefined,
+          type: raw.type ?? undefined,
+          translation: wordTranslation?.[wk],
+          pause_mark: pauseMarks?.[wk],
+        });
+      }
+      item.words = words;
+    }
     if (tIds && tIds.length > 0) {
       const tr: Record<string, TranslationEntry> = {};
       for (let i = 0; i < tIds.length; i++) {

@@ -190,5 +190,53 @@
         "accessCount": 7
       }
     ]
+  },
+  {
+    "timestamp": 1775774892350,
+    "nodes": 4,
+    "edges": 0,
+    "pageRankSum": 1,
+    "confidences": [
+      1,
+      1,
+      1,
+      0.8500000000000003
+    ],
+    "accessCounts": [
+      11,
+      11,
+      11,
+      7
+    ],
+    "topPatterns": [
+      {
+        "id": "mem-MEMORY-memory-index",
+        "summary": "Memory Index",
+        "confidence": 1,
+        "pageRank": 0.25,
+        "accessCount": 11
+      },
+      {
+        "id": "mem-project_quran_api----",
+        "summary": "---",
+        "confidence": 1,
+        "pageRank": 0.25,
+        "accessCount": 11
+      },
+      {
+        "id": "mem-project_arch_migration----",
+        "summary": "---",
+        "confidence": 1,
+        "pageRank": 0.25,
+        "accessCount": 11
+      },
+      {
+        "id": "insight-1775742529317-8grp",
+        "summary": "Frequently edited: unknown (106x)",
+        "confidence": 0.8500000000000003,
+        "pageRank": 0.25,
+        "accessCount": 7
+      }
+    ]
   }
 ]

@@ -94,6 +94,11 @@ surah.get("/:n/verses", async (c) => {
   if (translationsParam) {
     options.translationIds = translationsParam.split(",").map((s) => s.trim()).filter(Boolean);
   }
+  if (c.req.query("words") === "true") {
+    options.words = true;
+    const lang = c.req.query("lang");
+    if (lang) options.lang = lang;
+  }
 
   const data = await buildVerseList(page, script, fields, sort, options);
 
