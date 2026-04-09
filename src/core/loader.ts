@@ -462,8 +462,62 @@ export const loadAudioSegments = (recitationId: number | string) => {
 export const loadTopics = () =>
   loadJson<Record<string, TopicEntry>>("data/topics/data.json");
 
-export const loadMutashabihat = () =>
-  tryLoadJson<MutashabihatPair[]>("data/mutashabihat/data.json");
+export const loadMutashabihat = async (): Promise<MutashabihatPair[] | undefined> => {
+  // Try pre-built data.json first.
+  const prebuilt = await tryLoadJson<MutashabihatPair[]>("data/mutashabihat/data.json");
+  if (prebuilt) return prebuilt;
+
+  // Fallback: build from phrases.json scraped from QUL.
+  // Find the first subdirectory containing phrases.json.
+  let phrasesRelPath: string | undefined;
+  if (isRemoteData()) {
+    // Try known resource id 73 (the only mutashabihat resource on QUL).
+    const candidate = "data/mutashabihat/73/phrases.json";
+    const data = await tryLoadJson<Record<string, PhrasesEntry>>(candidate);
+    if (data) return phrasesToPairs(data);
+    return undefined;
+  }
+  const dir = path.join(ROOT, "data/mutashabihat");
+  let entries: Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  for (const e of entries) {
+    if (e.isDirectory()) {
+      phrasesRelPath = `data/mutashabihat/${e.name}/phrases.json`;
+      break;
+    }
+  }
+  if (!phrasesRelPath) return undefined;
+  const raw = await tryLoadJson<Record<string, PhrasesEntry>>(phrasesRelPath);
+  if (!raw) return undefined;
+  return phrasesToPairs(raw);
+};
+
+interface PhrasesEntry {
+  source: { key: string; from: number; to: number };
+  ayah: Record<string, number[][]>;
+  count?: number;
+}
+
+function phrasesToPairs(phrases: Record<string, PhrasesEntry>): MutashabihatPair[] {
+  const pairs: MutashabihatPair[] = [];
+  for (const entry of Object.values(phrases)) {
+    const src = entry.source?.key;
+    if (!src || !entry.ayah) continue;
+    for (const [matchedKey, positions] of Object.entries(entry.ayah)) {
+      if (matchedKey === src) continue;
+      pairs.push({
+        verse_key: src,
+        matched_key: matchedKey,
+        matched_word_positions: positions[0],
+      });
+    }
+  }
+  return pairs;
+}
 
 export const loadMushafPages = () =>
   tryLoadJson<Record<string, MushafPage>>("data/mushaf/pages.json");

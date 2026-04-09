@@ -1,10 +1,10 @@
 {
   "context": {
     "lastMatchedPatterns": [
-      "mem-project_arch_migration----",
       "mem-MEMORY-memory-index",
-      "mem-project_quran_api----"
+      "mem-project_quran_api----",
+      "mem-project_arch_migration----"
     ]
   },
-  "updatedAt": "2026-04-09T12:22:50.271Z"
+  "updatedAt": "2026-04-09T12:33:41.998Z"
 }
