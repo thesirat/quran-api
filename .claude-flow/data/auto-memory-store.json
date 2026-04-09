@@ -1,0 +1,41 @@
+[
+  {
+    "id": "mem-MEMORY-memory-index",
+    "key": "memory-index",
+    "content": "- [project_quran_api.md](project_quran_api.md) — Architecture, data sources, key files for quran-api (Hono + Vercel, no QuranWBW)",
+    "summary": "Memory Index",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/dzhamalail.tsatsaev/.claude/projects/-Users-dzhamalail-tsatsaev-IdeaProjects-quran-api/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1775734934124
+  },
+  {
+    "id": "mem-project_quran_api----",
+    "key": "-",
+    "content": "name: quran_api_architecture\ndescription: Architecture and data sources for the quran-api project (TypeScript Hono API on Vercel)\ntype: project\n---\n\nQuran API is a TypeScript + Hono API deployed on Vercel with no QuranWBW dependency.\n\n**Why:** User explicitly replaced all QuranWBW data sources with open alternatives.\n\n**Data sources (no QuranWBW):**\n- QUL (qul.tarteel.ai) — MIT license — primary source for everything\n- mustafa0x/quran-morphology — GPL — sub-word POS morphology (corpus.quran.com ",
+    "summary": "---",
+    "namespace": "project_quran_api",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/dzhamalail.tsatsaev/.claude/projects/-Users-dzhamalail-tsatsaev-IdeaProjects-quran-api/memory/project_quran_api.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1775734934124
+  },
+  {
+    "id": "mem-project_arch_migration----",
+    "key": "-",
+    "content": "name: arch_migration_readingstore\ndescription: Architectural migration status for the Assirat web app — ReadingStore split-brain fix, audio state, SW contract\ntype: project\n---\n\nPhase 1 architectural migration completed (2026-03-27):\n\n1. **ReadingStore.ts** — Added `transliterationSettings`, `quizSettings`, `offlineModeSettings` derived slices.\n2. **storesCore.ts** — ~25 settings-backed writable stores replaced with `derived()` projections of `_settings`. UI/ephemeral stores stay writable. `__au",
+    "summary": "---",
+    "namespace": "project_arch_migration",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/dzhamalail.tsatsaev/.claude/projects/-Users-dzhamalail-tsatsaev-IdeaProjects-vennyio/memory/project_arch_migration.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1775734934125
+  }
+]

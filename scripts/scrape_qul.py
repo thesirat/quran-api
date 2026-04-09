@@ -688,12 +688,34 @@ class TranslationScraper(BaseScraper):
                 link = row.locator('td:first-child a[href*="/resources/translation/"]').first
                 text = await link.inner_text()
                 if "word" in text.lower(): continue
-                
-                path = await link.get_attribute("href")
-                if path:
-                    detail_items.append({"name": text.strip(), "path": path})
+
+                href = await link.get_attribute("href")
+                if href:
+                    item: dict[str, str] = {"name": text.strip(), "path": href}
+                    # Extract language from tag chips (first non-"translation" a.tag)
+                    chips = row.locator('a.tag')
+                    chip_count = await chips.count()
+                    for ci in range(chip_count):
+                        chip_text = (await chips.nth(ci).inner_text()).strip()
+                        if chip_text and chip_text.lower() != "translation":
+                            item["language"] = chip_text
+                            break
+                    detail_items.append(item)
 
             logger.info(f"[{self.name}] Queued {len(detail_items)} resources for download.")
+
+            # Write catalog index.json
+            catalog = []
+            for item in detail_items:
+                tid = self._resource_slug(item["path"])
+                num = int(tid) if tid.isdigit() else 0
+                catalog.append({
+                    "id": num,
+                    "name": item["name"],
+                    "language": item.get("language", "unknown"),
+                })
+            write_json("data/translations/index.json", catalog)
+            logger.info(f"[{self.name}] Wrote catalog with {len(catalog)} entries.")
 
             async def _one(item: dict[str, str]) -> None:
                 async with self.session.worker_page() as wp:
@@ -768,13 +790,36 @@ class TafsirScraper(BaseScraper):
              
              detail_items = []
              for i in range(count):
-                 link = rows.nth(i).locator('td:first-child a').first
+                 row = rows.nth(i)
+                 link = row.locator('td:first-child a').first
                  text = (await link.inner_text()).strip()
                  href = await link.get_attribute("href")
                  if not href or "Download" in text: continue
-                 detail_items.append({"name": text, "path": href})
+                 item: dict[str, str] = {"name": text, "path": href}
+                 # Extract language from tag chips (first non-"tafsir" a.tag)
+                 chips = row.locator('a.tag')
+                 chip_count = await chips.count()
+                 for ci in range(chip_count):
+                     chip_text = (await chips.nth(ci).inner_text()).strip()
+                     if chip_text and chip_text.lower() != "tafsir":
+                         item["language"] = chip_text
+                         break
+                 detail_items.append(item)
 
              logger.info(f"[{self.name}] Found {len(detail_items)} tafsirs.")
+
+             # Write catalog index.json
+             catalog = []
+             for item in detail_items:
+                 tid = self._resource_slug(item["path"])
+                 num = int(tid) if tid.isdigit() else 0
+                 catalog.append({
+                     "id": num,
+                     "name": item["name"],
+                     "language": item.get("language", "unknown"),
+                 })
+             write_json("data/tafsirs/index.json", catalog)
+             logger.info(f"[{self.name}] Wrote catalog with {len(catalog)} entries.")
 
              async def _one(item: dict[str, str]) -> None:
                  async with self.session.worker_page() as wp:

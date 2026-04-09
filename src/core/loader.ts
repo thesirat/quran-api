@@ -402,8 +402,27 @@ export const loadTranslation = (id: number | string) => {
   return tryLoadJson<Record<string, TranslationEntry>>(`data/translations/${seg}.json`);
 };
 
-export const loadTranslationCatalog = () =>
-  loadJson<TranslationCatalogEntry[]>("data/translations/index.json");
+export const loadTranslationCatalog = async (): Promise<TranslationCatalogEntry[]> => {
+  const fromIndex = await tryLoadJson<TranslationCatalogEntry[]>("data/translations/index.json");
+  if (fromIndex) return fromIndex;
+  // Fallback: build minimal catalog from filesystem (local only).
+  if (isRemoteData()) return [];
+  const dir = path.join(ROOT, "data/translations");
+  let entries: Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((e) => e.isFile() && e.name.endsWith(".json") && e.name !== "index.json")
+    .map((e) => {
+      const stem = e.name.replace(/\.json$/, "");
+      const num = Number(stem);
+      return { id: Number.isFinite(num) ? num : 0, name: stem, language: "unknown" };
+    })
+    .sort((a, b) => a.id - b.id);
+};
 
 export const loadTafsirChapter = (id: number | string, surah: number) => {
   const idSeg = typeof id === "number" ? String(id) : id;
@@ -412,8 +431,23 @@ export const loadTafsirChapter = (id: number | string, surah: number) => {
   return tryLoadJson<TafsirChapter>(`data/tafsirs/${idSeg}/${surah}.json`);
 };
 
-export const loadTafsirCatalog = () =>
-  loadJson<TafsirCatalogEntry[]>("data/tafsirs/index.json");
+export const loadTafsirCatalog = async (): Promise<TafsirCatalogEntry[]> => {
+  const fromIndex = await tryLoadJson<TafsirCatalogEntry[]>("data/tafsirs/index.json");
+  if (fromIndex) return fromIndex;
+  // Fallback: build minimal catalog from filesystem (local only).
+  if (isRemoteData()) return [];
+  const dir = path.join(ROOT, "data/tafsirs");
+  let entries: Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
+    .map((e) => ({ id: Number(e.name), name: e.name, language: "unknown" }))
+    .sort((a, b) => a.id - b.id);
+};
 
 export const loadRecitations = () =>
   loadJson<RecitationEntry[]>("data/audio/recitations.json");

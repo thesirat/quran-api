@@ -1,0 +1,537 @@
+[
+  {
+    "id": 453,
+    "name": "Sinhalese Mokhtasar",
+    "language": "Sinhala"
+  },
+  {
+    "id": 266,
+    "name": "English Al-Mukhtasar",
+    "language": "English"
+  },
+  {
+    "id": 283,
+    "name": "Tafsir As-Saadi",
+    "language": "Albanian"
+  },
+  {
+    "id": 265,
+    "name": "Japanese Abridged Explanation of the Quran",
+    "language": "Japanese"
+  },
+  {
+    "id": 262,
+    "name": "Russian Al-Mukhtasar",
+    "language": "Russian"
+  },
+  {
+    "id": 267,
+    "name": "Bengali Abridged Explanation of the Quran",
+    "language": "Bengali"
+  },
+  {
+    "id": 254,
+    "name": "Filipino (Tagalog) Al-Mukhtasar in interpreting the Noble Quran",
+    "language": "Tagalog"
+  },
+  {
+    "id": 307,
+    "name": "Tafsir Ibne Kathir",
+    "language": "Russian"
+  },
+  {
+    "id": 264,
+    "name": "Chinese Abridged Explanation of the Quran",
+    "language": "Chinese"
+  },
+  {
+    "id": 306,
+    "name": "Tafsir Ibne Kathir",
+    "language": "Turkish"
+  },
+  {
+    "id": 250,
+    "name": "Asseraj fi Bayan Gharib AlQuran",
+    "language": "Arabic"
+  },
+  {
+    "id": 255,
+    "name": "Assamese Abridged Explanation of the Quran",
+    "language": "Assamese"
+  },
+  {
+    "id": 251,
+    "name": "Arabic Al-Mukhtasar in interpreting the Noble Quran",
+    "language": "Arabic"
+  },
+  {
+    "id": 309,
+    "name": "Tafsir As-Saadi - Urdu",
+    "language": "Urdu"
+  },
+  {
+    "id": 253,
+    "name": "Italian Al-Mukhtasar in interpreting the Noble Quran",
+    "language": "Italian"
+  },
+  {
+    "id": 310,
+    "name": "Tafsir As-Saadi",
+    "language": "Russian"
+  },
+  {
+    "id": 252,
+    "name": "Bosnian Abridged Explanation of the Quran",
+    "language": "Bosnian"
+  },
+  {
+    "id": 256,
+    "name": "Malayalam Abridged Explanation of the Quran",
+    "language": "Malayalam"
+  },
+  {
+    "id": 258,
+    "name": "Turkish Al-Mukhtasar in Interpreting the Noble Quran",
+    "language": "Turkish"
+  },
+  {
+    "id": 257,
+    "name": "Khmer Abridged Explanation of the Quran",
+    "language": "Central khmer"
+  },
+  {
+    "id": 259,
+    "name": "French Abridged Explanation of the Quran",
+    "language": "French"
+  },
+  {
+    "id": 261,
+    "name": "Vietnamese Al-Mukhtasar in interpreting the Noble Quran",
+    "language": "Vietnamese"
+  },
+  {
+    "id": 263,
+    "name": "Persian Al-Mukhtasar in interpreting the Noble Quran",
+    "language": "Persian"
+  },
+  {
+    "id": 308,
+    "name": "Tafsir As-Saadi",
+    "language": "Arabic"
+  },
+  {
+    "id": 260,
+    "name": "Indoniesua Al-Mukhtasar in Interpreting the Noble Quran",
+    "language": "Indonesian"
+  },
+  {
+    "id": 504,
+    "name": "Iraab Al-Muyassar",
+    "language": "Arabic"
+  },
+  {
+    "id": 499,
+    "name": "Tafsir Ibn Abi Zamanin",
+    "language": "Arabic"
+  },
+  {
+    "id": 507,
+    "name": "Abu Bakr Jabir Al-Jazairi",
+    "language": "Arabic"
+  },
+  {
+    "id": 506,
+    "name": "I'rab Al Quran li Al Darwish",
+    "language": "Arabic"
+  },
+  {
+    "id": 503,
+    "name": "Tafsir As-Saadi",
+    "language": "Indonesian"
+  },
+  {
+    "id": 498,
+    "name": "Nazam Al-Durar Al-Biqa'i",
+    "language": "Arabic"
+  },
+  {
+    "id": 25,
+    "name": "Tafsir al-Tahrir wa al-Tanwir",
+    "language": "Arabic"
+  },
+  {
+    "id": 35,
+    "name": "Tafsir Ibn Kathir",
+    "language": "English"
+  },
+  {
+    "id": 22,
+    "name": "Tafsir Ibn Kathir",
+    "language": "Arabic"
+  },
+  {
+    "id": 23,
+    "name": "Tafseer Al Qurtubi",
+    "language": "Arabic"
+  },
+  {
+    "id": 27,
+    "name": "Tafseer Al-Baghawi",
+    "language": "Arabic"
+  },
+  {
+    "id": 24,
+    "name": "Tafseer Al Saddi",
+    "language": "Arabic"
+  },
+  {
+    "id": 30,
+    "name": "Tafsir Ibn Kathir",
+    "language": "Urdu"
+  },
+  {
+    "id": 28,
+    "name": "Fi Zilal al-Quran",
+    "language": "Urdu"
+  },
+  {
+    "id": 31,
+    "name": "Tafseer ibn Kathir",
+    "language": "Bengali"
+  },
+  {
+    "id": 29,
+    "name": "Tafsir Bayan ul Quran",
+    "language": "Urdu"
+  },
+  {
+    "id": 26,
+    "name": "Tafsir Al Wasit",
+    "language": "Arabic"
+  },
+  {
+    "id": 34,
+    "name": "Maarif-ul-Quran",
+    "language": "English"
+  },
+  {
+    "id": 38,
+    "name": "Tafsir Muyassar",
+    "language": "Arabic"
+  },
+  {
+    "id": 41,
+    "name": "Tafsir Jalalayn",
+    "language": "Indonesian"
+  },
+  {
+    "id": 32,
+    "name": "Tafsir Ahsanul Bayaan",
+    "language": "Bengali"
+  },
+  {
+    "id": 39,
+    "name": "Tafsir Fathul Majid",
+    "language": "Bengali"
+  },
+  {
+    "id": 36,
+    "name": "Tafseer Al Saddi",
+    "language": "Russian"
+  },
+  {
+    "id": 33,
+    "name": "Tafsir Abu Bakr Zakaria",
+    "language": "Bengali"
+  },
+  {
+    "id": 42,
+    "name": "Tazkirul Quran(Maulana Wahiduddin Khan)",
+    "language": "English"
+  },
+  {
+    "id": 43,
+    "name": "Tazkirul Quran(Maulana Wahiduddin Khan)",
+    "language": "Urdu"
+  },
+  {
+    "id": 40,
+    "name": "Rebar Kurdish Tafsir",
+    "language": "Kurdish"
+  },
+  {
+    "id": 509,
+    "name": "Al-Muharrar Al-Wajiz Ibn Atiyyah",
+    "language": "Arabic"
+  },
+  {
+    "id": 37,
+    "name": "Tafsir al-Tabari",
+    "language": "Arabic"
+  },
+  {
+    "id": 511,
+    "name": "Al-Basit",
+    "language": "Arabic"
+  },
+  {
+    "id": 515,
+    "name": "Alrab Al-Quran li-Da'as",
+    "language": "Arabic"
+  },
+  {
+    "id": 514,
+    "name": "Tafsir Al-Nasafi",
+    "language": "Arabic"
+  },
+  {
+    "id": 519,
+    "name": "Al-Muyassar fi Al-Gharib",
+    "language": "Arabic"
+  },
+  {
+    "id": 516,
+    "name": "Al Lubab fi Ulum Al Kitab",
+    "language": "Arabic"
+  },
+  {
+    "id": 523,
+    "name": "Tafsir Jalalayn",
+    "language": "Arabic"
+  },
+  {
+    "id": 518,
+    "name": "Tafsir Al-Baydawi",
+    "language": "Arabic"
+  },
+  {
+    "id": 520,
+    "name": "Al Jadwal fi I'rab Al Quran",
+    "language": "Arabic"
+  },
+  {
+    "id": 488,
+    "name": "Tafsir Al-Razi",
+    "language": "Arabic"
+  },
+  {
+    "id": 491,
+    "name": "Tafsir Ibn Juzay",
+    "language": "Arabic"
+  },
+  {
+    "id": 485,
+    "name": "Tafsir As-Saadi - Persian",
+    "language": "Persian"
+  },
+  {
+    "id": 484,
+    "name": "Tafsir As-Saadi - Turkish",
+    "language": "Turkish"
+  },
+  {
+    "id": 492,
+    "name": "Mawsoo'at Al-Tafsir Al-Ma'thoor",
+    "language": "Arabic"
+  },
+  {
+    "id": 487,
+    "name": "Tahlil Kalimat al-Qur'an",
+    "language": "Arabic"
+  },
+  {
+    "id": 486,
+    "name": "Tafsir Ibn Uthaymeen",
+    "language": "Arabic"
+  },
+  {
+    "id": 490,
+    "name": "Tafsir Makhi",
+    "language": "Arabic"
+  },
+  {
+    "id": 541,
+    "name": "Thai Mokhtasar",
+    "language": "Thai"
+  },
+  {
+    "id": 524,
+    "name": "Mahasin Al-Ta'wil Al-Qasimi",
+    "language": "Arabic"
+  },
+  {
+    "id": 540,
+    "name": "Telugu Mokhtasar",
+    "language": "Telugu"
+  },
+  {
+    "id": 539,
+    "name": "Uyghur Mokhtasar",
+    "language": "Uighur"
+  },
+  {
+    "id": 533,
+    "name": "Pashto Mokhtasar",
+    "language": "Pashto"
+  },
+  {
+    "id": 529,
+    "name": "Tafsir Al-Sam'ani",
+    "language": "Arabic"
+  },
+  {
+    "id": 537,
+    "name": "Azeri Mokhtasar",
+    "language": "Azeri"
+  },
+  {
+    "id": 534,
+    "name": "Fulani Mokhtasar",
+    "language": "Fulah"
+  },
+  {
+    "id": 526,
+    "name": "Al-Bahr Al-Muhit",
+    "language": "Arabic"
+  },
+  {
+    "id": 528,
+    "name": "Tafsir Al-Tha'alibi",
+    "language": "Arabic"
+  },
+  {
+    "id": 538,
+    "name": "Uzbek Mokhtasar",
+    "language": "Uzbek"
+  },
+  {
+    "id": 527,
+    "name": "Tafsir Al-Tha'alibi",
+    "language": "Arabic"
+  },
+  {
+    "id": 525,
+    "name": "Adwa' Al-Bayan",
+    "language": "Arabic"
+  },
+  {
+    "id": 563,
+    "name": "Ayah Dependency Graphs",
+    "language": "Arabic"
+  },
+  {
+    "id": 543,
+    "name": "Serbian Mokhtasar",
+    "language": "Serbian"
+  },
+  {
+    "id": 542,
+    "name": "Kurdish Mokhtasar",
+    "language": "Kurdish"
+  },
+  {
+    "id": 489,
+    "name": "Al-Wajiz Wahidi",
+    "language": "Arabic"
+  },
+  {
+    "id": 554,
+    "name": "Tamil Mokhtasar",
+    "language": "Tamil"
+  },
+  {
+    "id": 494,
+    "name": "Fath Al-Qadir Al-Shawkani",
+    "language": "Arabic"
+  },
+  {
+    "id": 522,
+    "name": "Al Nashr li Ibn Al Jazari",
+    "language": "Arabic"
+  },
+  {
+    "id": 536,
+    "name": "Kyrgyz Mokhtasar",
+    "language": "Kyrgyz"
+  },
+  {
+    "id": 521,
+    "name": "Al Qira'at Al Mawsoo'ah Al Qur'aniyyah",
+    "language": "Arabic"
+  },
+  {
+    "id": 268,
+    "name": "Spanish Abridged Explanation of the Quran",
+    "language": "Spanish"
+  },
+  {
+    "id": 496,
+    "name": "Tafsir Ibn Al-Jawzi",
+    "language": "Arabic"
+  },
+  {
+    "id": 500,
+    "name": "Tafsir Ibn Al-Qayyim",
+    "language": "Arabic"
+  },
+  {
+    "id": 535,
+    "name": "Hindi Mokhtasar",
+    "language": "Hindi"
+  },
+  {
+    "id": 493,
+    "name": "Al-Durr Al-Manthur",
+    "language": "Arabic"
+  },
+  {
+    "id": 508,
+    "name": "Jamia Al-Bayan AlIji",
+    "language": "Arabic"
+  },
+  {
+    "id": 513,
+    "name": "Tafsir Al-Samarqandi",
+    "language": "Arabic"
+  },
+  {
+    "id": 502,
+    "name": "Tafsir Ibn Abi Hatim",
+    "language": "Arabic"
+  },
+  {
+    "id": 501,
+    "name": "Tafsir Al-Alusi",
+    "language": "Arabic"
+  },
+  {
+    "id": 505,
+    "name": "Al Dur Al Masun Lil Samin Al Halabi",
+    "language": "Arabic"
+  },
+  {
+    "id": 517,
+    "name": "Tadabbur wa 'Amal",
+    "language": "Arabic"
+  },
+  {
+    "id": 495,
+    "name": "Fath Al-Bayan li Al-Qanuji",
+    "language": "Arabic"
+  },
+  {
+    "id": 497,
+    "name": "Tafsir Abi Al-Suaood",
+    "language": "Arabic"
+  },
+  {
+    "id": 512,
+    "name": "Tafsir Al-Mawardi",
+    "language": "Arabic"
+  },
+  {
+    "id": 510,
+    "name": "Al-Kashshaf Al-Zamakhshari",
+    "language": "Arabic"
+  }
+]
