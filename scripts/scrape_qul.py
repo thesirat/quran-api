@@ -1198,6 +1198,17 @@ async def main():
         for s in scrapers:
             await s.run()
 
+    # Regenerate derived catalogs for any scraped resource types.
+    if "recitation" in selected:
+        from generate_recitation_catalog import build_catalog
+        import json
+        out = Path(__file__).resolve().parent.parent / "data" / "audio" / "recitations.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        catalog = build_catalog()
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(catalog, f, ensure_ascii=False, indent=2)
+        logger.info("Regenerated recitation catalog: %d entries", len(catalog))
+
 if __name__ == "__main__":
     try: asyncio.run(main())
     except KeyboardInterrupt: pass

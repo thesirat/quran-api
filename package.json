@@ -6,7 +6,8 @@
     "dev": "vercel dev",
     "build": "tsc --noEmit",
     "lint": "eslint src api --ext .ts",
-    "data:font-catalog": "python3 scripts/generate_font_catalog.py"
+    "data:font-catalog": "python3 scripts/generate_font_catalog.py",
+    "data:recitation-catalog": "python3 scripts/generate_recitation_catalog.py"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
