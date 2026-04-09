@@ -328,4 +328,5 @@ export interface VerseListItem {
   ayah?: number;
   text?: string;
   meta?: VerseMeta;
+  translations?: Record<string, TranslationEntry>;
 }

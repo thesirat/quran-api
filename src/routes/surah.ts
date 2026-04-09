@@ -5,7 +5,7 @@ import type { SurahMeta, TafsirCatalogEntry, SurahInfoCatalogEntry } from "../co
 import { apiError } from "../core/errors.js";
 import { validateSurah, validateScript, VALID_SCRIPTS } from "../core/validation.js";
 import { parsePagination } from "../core/pagination.js";
-import { parseFields, buildVerseList } from "../core/fields.js";
+import { parseFields, buildVerseList, type BuildVerseOptions } from "../core/fields.js";
 import { getVerseKeysForSurah } from "../core/verse-indexes.js";
 import { parseSortParam, VERSE_SORT_FIELDS } from "../core/sorting.js";
 
@@ -88,7 +88,14 @@ surah.get("/:n/verses", async (c) => {
   const sort = parseSortParam(c.req.query("sort"), VERSE_SORT_FIELDS);
   const all = await getVerseKeysForSurah(n);
   const page = all.slice(offset, offset + limit);
-  const data = await buildVerseList(page, script, fields, sort);
+
+  const options: BuildVerseOptions = {};
+  const translationsParam = c.req.query("translations");
+  if (translationsParam) {
+    options.translationIds = translationsParam.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+
+  const data = await buildVerseList(page, script, fields, sort, options);
 
   return c.json({ data, meta: { total: all.length, limit, offset } });
 });
