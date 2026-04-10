@@ -263,15 +263,100 @@ export const loadAyahThemes = () =>
 // Word translations, Transliterations, Surah info
 // ---------------------------------------------------------------------------
 
-export const loadWordTranslationCatalog = () =>
-  tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");
+export const loadWordTranslationCatalog = async (): Promise<WordTranslationCatalogEntry[]> => {
+  const fromIndex = await tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");
+  if (fromIndex) return fromIndex;
+  // Derive from word-level transliteration files so clients always have *something* under lang keys.
+  const langs = Object.keys(WORD_TRANSLITERATION_ALIASES).filter((k) => /^[a-z]{2,}$/.test(k));
+  return langs.map((lang, i) => ({ lang, id: i + 1, name: `${lang} (word-by-word transliteration)`, direction: "ltr" as const }));
+};
 
-export const loadTransliterationCatalog = () =>
-  tryLoadJson<TransliterationCatalogEntry[]>("data/transliteration/index.json");
+/**
+ * Language → filename stem aliases for verse-level transliterations.
+ * The actual files live at data/transliteration/<stem>.json.
+ */
+const VERSE_TRANSLITERATION_ALIASES: Record<string, string> = {
+  en: "english_transliterationtajweed",
+  "en-clean": "english_transliterationtajweed",
+  "en-tajweed": "english_transliterationtajweed",
+  english: "english_transliterationtajweed",
+  "english-tajweed": "english_transliterationtajweed",
+  "en-rtf": "english_transliterationrtf_updated",
+  "english-rtf": "english_transliterationrtf_updated",
+  "en-syllables": "syllables_transliteration",
+  "english-syllables": "syllables_transliteration",
+  syllables: "syllables_transliteration",
+  tr: "turkish_transliteration",
+  turkish: "turkish_transliteration",
+  default: "transliteration",
+};
 
-export const loadTransliteration = (lang: string) => {
-  assertSafeResourceSegment(lang, "transliteration lang");
-  return tryLoadJson<Record<string, string>>(`data/transliteration/${lang}.json`);
+/** Language → filename stem aliases for word-by-word transliterations. */
+const WORD_TRANSLITERATION_ALIASES: Record<string, string> = {
+  en: "english_wbw_transliteration",
+  english: "english_wbw_transliteration",
+  "en-wbw": "english_wbw_transliteration",
+  "english-wbw": "english_wbw_transliteration",
+};
+
+function resolveTransliterationStem(lang: string): string {
+  // Case-insensitive alias lookup; fallback to the raw lang string.
+  const key = lang.toLowerCase();
+  return VERSE_TRANSLITERATION_ALIASES[key] ?? lang;
+}
+
+function resolveWordTransliterationStem(lang: string): string | undefined {
+  return WORD_TRANSLITERATION_ALIASES[lang.toLowerCase()];
+}
+
+/** Normalize a transliteration file to `{verseKey: string}`. Accepts either `string` or `{t: string}` shapes. */
+function normalizeVerseTransliteration(
+  raw: Record<string, string | { t?: string; text?: string }>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "string") out[k] = v;
+    else if (v && typeof v === "object") out[k] = v.text ?? v.t ?? "";
+  }
+  return out;
+}
+
+export const loadTransliterationCatalog = async (): Promise<TransliterationCatalogEntry[]> => {
+  const fromIndex = await tryLoadJson<TransliterationCatalogEntry[]>("data/transliteration/index.json");
+  if (fromIndex) return fromIndex;
+  // Synthesize a catalog from known aliases so clients can discover supported lang codes.
+  const verseEntries: TransliterationCatalogEntry[] = [];
+  const seen = new Set<string>();
+  for (const [lang, stem] of Object.entries(VERSE_TRANSLITERATION_ALIASES)) {
+    if (seen.has(lang)) continue;
+    seen.add(lang);
+    verseEntries.push({ lang, name: stem, type: "ayah" });
+  }
+  for (const [lang, stem] of Object.entries(WORD_TRANSLITERATION_ALIASES)) {
+    const key = `word:${lang}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    verseEntries.push({ lang, name: stem, type: "word" });
+  }
+  return verseEntries;
+};
+
+export const loadTransliteration = async (lang: string): Promise<Record<string, string> | undefined> => {
+  const stem = resolveTransliterationStem(lang);
+  assertSafeResourceSegment(stem, "transliteration lang");
+  const raw = await tryLoadJson<Record<string, string | { t?: string; text?: string }>>(
+    `data/transliteration/${stem}.json`,
+  );
+  if (!raw) return undefined;
+  return normalizeVerseTransliteration(raw);
+};
+
+/** Load word-by-word transliteration map (`surah:ayah:word` → text) for a given lang. */
+export const loadWordTransliteration = async (lang: string): Promise<Record<string, string> | undefined> => {
+  const stem = resolveWordTransliterationStem(lang);
+  if (!stem) return undefined;
+  assertSafeResourceSegment(stem, "word transliteration lang");
+  return tryLoadJson<Record<string, string>>(`data/transliteration/${stem}.json`);
 };
 
 export const loadSurahInfoCatalog = () =>

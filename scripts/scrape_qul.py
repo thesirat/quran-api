@@ -1059,6 +1059,57 @@ class BasicSingleFileScraper(BaseScraper):
         self.print_summary()
 
 
+class TransliterationScraper(BasicSingleFileScraper):
+    """
+    Writes QUL transliteration resources to ``data/transliteration/<stem>.json``
+    and emits a catalog ``data/transliteration/index.json`` describing each
+    scraped file, so the API can discover available resources without a
+    directory scan (required when DATA_BASE_URL is set).
+
+    Each catalog entry has the shape::
+
+        {"lang": "<file stem>", "name": "<display name>", "type": "ayah" | "word"}
+
+    The ``type`` is inferred from sampled keys: ``s:a:w`` → word-level,
+    ``s:a`` → verse-level (default: ``ayah``).
+    """
+
+    def _infer_kind(self, out_path: str) -> str:
+        try:
+            with open(out_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return "ayah"
+        if not isinstance(data, dict):
+            return "ayah"
+        for key in list(data.keys())[:5]:
+            if isinstance(key, str) and key.count(":") >= 2:
+                return "word"
+        return "ayah"
+
+    async def _finalize(self) -> None:
+        if not self._written_items:
+            return
+        entries: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for item in self._written_items:
+            stem = item["fname"]
+            if stem in seen:
+                continue
+            seen.add(stem)
+            entries.append({
+                "lang": stem,
+                "name": item["display_name"],
+                "type": self._infer_kind(item["path"]),
+            })
+        entries.sort(key=lambda e: e["lang"])
+        index_path = f"{self.multi_dir}/index.json"
+        write_json(index_path, entries)
+        logger.info(
+            f"[{self.name}] Wrote catalog {index_path} ({len(entries)} entries)"
+        )
+
+
 class SurahInfoScraper(BasicSingleFileScraper):
     """
     Writes QUL "Surah Info" resources to ``data/surah-info/<lang>.json``
@@ -1223,7 +1274,7 @@ SCRAPER_FACTORIES: dict[str, Callable[[QULSession], BaseScraper]] = {
     "mushaf-layout": lambda s: BasicSingleFileScraper(
         s, "mushaf-layout", "", "mushaf-layout", "data/mushaf-layout"
     ),
-    "transliteration": lambda s: BasicSingleFileScraper(
+    "transliteration": lambda s: TransliterationScraper(
         s, "transliteration", "", "transliteration", "data/transliteration"
     ),
     "recitation": lambda s: MultiAssetResourceScraper(

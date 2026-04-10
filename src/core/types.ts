@@ -42,6 +42,7 @@ export interface VerseData {
   words?: WordData[];
   morphology?: Record<string, MorphSegment[]>;
   translations?: Record<string, TranslationEntry>;
+  transliteration?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,7 @@ export interface WordData {
   line?: number;
   type?: string;
   translation?: string;
+  transliteration?: string;
   pause_mark?: string;
 }
 
@@ -330,4 +332,5 @@ export interface VerseListItem {
   meta?: VerseMeta;
   words?: WordData[];
   translations?: Record<string, TranslationEntry>;
+  transliteration?: string;
 }

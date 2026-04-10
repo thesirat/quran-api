@@ -109,9 +109,6 @@ catalog.get("/recitations", async (c) => {
 // ---------------------------------------------------------------------------
 catalog.get("/word-translations", async (c) => {
   const data = await loadWordTranslationCatalog();
-  if (!data) {
-    return apiError(c, 503, "data_unavailable", "Word translation catalog not available", "Run scripts/scrape_qul.py to generate it");
-  }
   return c.json({ data, meta: { total: data.length } });
 });
 
@@ -120,9 +117,6 @@ catalog.get("/word-translations", async (c) => {
 // ---------------------------------------------------------------------------
 catalog.get("/transliterations", async (c) => {
   const data = await loadTransliterationCatalog();
-  if (!data) {
-    return apiError(c, 503, "data_unavailable", "Transliteration catalog not available", "Run scripts/scrape_qul.py --resources transliteration to generate it");
-  }
   return c.json({ data, meta: { total: data.length } });
 });
 

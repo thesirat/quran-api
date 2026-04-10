@@ -36,6 +36,7 @@ export {
   loadWordTranslationCatalog,
   loadTransliterationCatalog,
   loadTransliteration,
+  loadWordTransliteration,
   loadSurahInfoCatalog,
   loadSurahInfo,
   assertSafeFontFilename,

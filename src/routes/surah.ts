@@ -99,6 +99,8 @@ surah.get("/:n/verses", async (c) => {
     const lang = c.req.query("lang");
     if (lang) options.lang = lang;
   }
+  const transliterationLang = c.req.query("transliteration");
+  if (transliterationLang) options.transliteration = transliterationLang;
 
   const data = await buildVerseList(page, script, fields, sort, options);
 

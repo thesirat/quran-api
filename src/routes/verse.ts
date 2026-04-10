@@ -11,6 +11,8 @@ import {
   loadRecitations,
   loadAudioSegments,
   loadTransliteration,
+  loadTransliterationCatalog,
+  loadWordTransliteration,
   loadAyahThemes,
 } from "../core/loader.js";
 import type { VerseData, WordData, TranslationEntry, TafsirAyah, RecitationEntry } from "../core/types.js";
@@ -50,6 +52,13 @@ verse.get("/:key", async (c) => {
   // Optional: embed words
   if (q.words === "true") {
     result.words = await buildWords(key, meta.words_count, q.lang);
+  }
+
+  // Optional: embed verse-level transliteration (alias lang, e.g. ?transliteration=en)
+  if (q.transliteration) {
+    const tMap = await loadTransliteration(q.transliteration);
+    const text = tMap?.[key];
+    if (text !== undefined) result.transliteration = text;
   }
 
   // Optional: embed translations (graceful partial on failure)
@@ -238,7 +247,15 @@ verse.get("/:key/transliteration", async (c) => {
   const lang = c.req.query("lang") ?? "en";
   const data = await loadTransliteration(lang);
   if (!data) {
-    return apiError(c, 503, "data_unavailable", `Transliteration for '${lang}' not available`, "Run scripts/scrape_qul.py --resources transliteration to generate it");
+    const catalog = await loadTransliterationCatalog();
+    const available = catalog.filter((e) => e.type !== "word").map((e) => e.lang).join(", ");
+    return apiError(
+      c,
+      404,
+      "not_found",
+      `Transliteration for '${lang}' not available`,
+      available ? `Available languages: ${available}` : "Run scripts/scrape_qul.py --resources transliteration to generate it",
+    );
   }
 
   const text = data[key];
@@ -268,10 +285,11 @@ verse.get("/:key/theme", async (c) => {
 // Internal helper: build word list for a verse
 // ---------------------------------------------------------------------------
 async function buildWords(verseKey: string, wordCount: number, lang?: string): Promise<WordData[]> {
-  const [wordsArabic, pauseMarks, wordTranslation] = await Promise.all([
+  const [wordsArabic, pauseMarks, wordTranslation, wordTransliteration] = await Promise.all([
     loadWordsArabic(),
     loadPauseMarks(),
     lang ? loadWordTranslation(lang) : Promise.resolve(undefined),
+    lang ? loadWordTransliteration(lang) : Promise.resolve(undefined),
   ]);
 
   const words: WordData[] = [];
@@ -290,6 +308,7 @@ async function buildWords(verseKey: string, wordCount: number, lang?: string): P
       line: raw.line ?? undefined,
       type: raw.type ?? undefined,
       translation: wordTranslation?.[wk],
+      transliteration: wordTransliteration?.[wk],
       pause_mark: pauseMarks?.[wk],
     });
   }

@@ -1,4 +1,13 @@
-import { loadVerseMeta, loadScript, loadTranslation, loadWordsArabic, loadWordTranslation, loadPauseMarks } from "./loader.js";
+import {
+  loadVerseMeta,
+  loadScript,
+  loadTranslation,
+  loadWordsArabic,
+  loadWordTranslation,
+  loadPauseMarks,
+  loadWordTransliteration,
+  loadTransliteration,
+} from "./loader.js";
 import type { ScriptName } from "./loaders/quran.js";
 import type { SortSpec, TranslationEntry, VerseListItem, WordData } from "./types.js";
 import { applySorting } from "./sorting.js";
@@ -18,6 +27,8 @@ export interface BuildVerseOptions {
   translationIds?: string[];
   words?: boolean;
   lang?: string;
+  /** Embed verse-level transliteration (alias lang, e.g. "en"). */
+  transliteration?: string;
 }
 
 /**
@@ -34,15 +45,20 @@ export async function buildVerseMap(
   const needMeta = !fields || fields.has("meta");
   const tIds = options?.translationIds;
   const needWords = options?.words === true;
+  const wordLang = needWords ? options?.lang : undefined;
+  const verseTransliterationLang = options?.transliteration;
 
-  const [meta, text, wordsArabic, pauseMarks, wordTranslation, ...translationMaps] = await Promise.all([
-    loadVerseMeta(),
-    needText ? loadScript(script) : Promise.resolve(null),
-    needWords ? loadWordsArabic() : Promise.resolve(null),
-    needWords ? loadPauseMarks() : Promise.resolve(null),
-    needWords && options?.lang ? loadWordTranslation(options.lang) : Promise.resolve(undefined),
-    ...(tIds ?? []).map((id) => loadTranslation(id).catch(() => null)),
-  ]);
+  const [meta, text, wordsArabic, pauseMarks, wordTranslation, wordTransliteration, verseTransliteration, ...translationMaps] =
+    await Promise.all([
+      loadVerseMeta(),
+      needText ? loadScript(script) : Promise.resolve(null),
+      needWords ? loadWordsArabic() : Promise.resolve(null),
+      needWords ? loadPauseMarks() : Promise.resolve(null),
+      wordLang ? loadWordTranslation(wordLang) : Promise.resolve(undefined),
+      wordLang ? loadWordTransliteration(wordLang) : Promise.resolve(undefined),
+      verseTransliterationLang ? loadTransliteration(verseTransliterationLang) : Promise.resolve(undefined),
+      ...(tIds ?? []).map((id) => loadTranslation(id).catch(() => null)),
+    ]);
 
   const map = new Map<string, VerseListItem>();
   for (const key of keys) {
@@ -71,10 +87,15 @@ export async function buildVerseMap(
           line: raw.line ?? undefined,
           type: raw.type ?? undefined,
           translation: wordTranslation?.[wk],
+          transliteration: wordTransliteration?.[wk],
           pause_mark: pauseMarks?.[wk],
         });
       }
       item.words = words;
+    }
+    if (verseTransliteration) {
+      const t = verseTransliteration[key];
+      if (t !== undefined) item.transliteration = t;
     }
     if (tIds && tIds.length > 0) {
       const tr: Record<string, TranslationEntry> = {};
