@@ -1,127 +1,42 @@
 [
   {
     "lang": "english_transliterationrtf_updated",
-    "name": "english_transliterationrtf_updated",
+    "name": "English Transliteration(RTF Updated)",
     "type": "ayah"
   },
   {
     "lang": "english_transliterationtajweed",
-    "name": "english_transliterationtajweed",
+    "name": "English Transliteration(Tajweed)",
     "type": "ayah"
   },
   {
     "lang": "english_wbw_transliteration",
-    "name": "english_wbw_transliteration",
+    "name": "English wbw transliteration",
     "type": "word"
   },
   {
     "lang": "syllables_transliteration",
-    "name": "syllables_transliteration",
+    "name": "Syllables Transliteration",
     "type": "ayah"
   },
   {
     "lang": "syllables_transliteration_2",
-    "name": "syllables_transliteration_2",
+    "name": "Syllables Transliteration 2",
     "type": "ayah"
   },
   {
     "lang": "syllables_transliterationold",
-    "name": "syllables_transliterationold",
+    "name": "Syllables Transliteration(Old)",
     "type": "ayah"
   },
   {
     "lang": "transliteration",
-    "name": "transliteration",
+    "name": "Transliteration",
     "type": "ayah"
   },
   {
     "lang": "turkish_transliteration",
-    "name": "turkish_transliteration",
+    "name": "Turkish Transliteration",
     "type": "ayah"
-  },
-  {
-    "lang": "en",
-    "name": "english_transliterationtajweed",
-    "type": "ayah"
-  },
-  {
-    "lang": "en-clean",
-    "name": "english_transliterationtajweed",
-    "type": "ayah"
-  },
-  {
-    "lang": "en-tajweed",
-    "name": "english_transliterationtajweed",
-    "type": "ayah"
-  },
-  {
-    "lang": "english",
-    "name": "english_transliterationtajweed",
-    "type": "ayah"
-  },
-  {
-    "lang": "english-tajweed",
-    "name": "english_transliterationtajweed",
-    "type": "ayah"
-  },
-  {
-    "lang": "en-rtf",
-    "name": "english_transliterationrtf_updated",
-    "type": "ayah"
-  },
-  {
-    "lang": "english-rtf",
-    "name": "english_transliterationrtf_updated",
-    "type": "ayah"
-  },
-  {
-    "lang": "en-syllables",
-    "name": "syllables_transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "english-syllables",
-    "name": "syllables_transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "syllables",
-    "name": "syllables_transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "tr",
-    "name": "turkish_transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "turkish",
-    "name": "turkish_transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "default",
-    "name": "transliteration",
-    "type": "ayah"
-  },
-  {
-    "lang": "en",
-    "name": "english_wbw_transliteration",
-    "type": "word"
-  },
-  {
-    "lang": "english",
-    "name": "english_wbw_transliteration",
-    "type": "word"
-  },
-  {
-    "lang": "en-wbw",
-    "name": "english_wbw_transliteration",
-    "type": "word"
-  },
-  {
-    "lang": "english-wbw",
-    "name": "english_wbw_transliteration",
-    "type": "word"
   }
 ]
