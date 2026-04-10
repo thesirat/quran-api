@@ -839,6 +839,89 @@ class WordTranslationScraper(BaseScraper):
         super().__init__(session, "word-translations")
         self._written_stems: dict[str, dict[str, Any]] = {}
 
+    # --- HTML stripping for rich-text word-by-word payloads (e.g. QUL "Word by Word Resources").
+    _HTML_TAG_RE = re.compile(r"<[^>]+>")
+    _WHITESPACE_RE = re.compile(r"\s+")
+
+    @classmethod
+    def _strip_html(cls, s: str) -> str:
+        if "<" not in s:
+            return s
+        plain = cls._HTML_TAG_RE.sub(" ", s)
+        plain = (
+            plain
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", '"')
+            .replace("&#39;", "'")
+        )
+        return cls._WHITESPACE_RE.sub(" ", plain).strip()
+
+    def _extract_word_translation_map(self, data: Any) -> dict[str, str]:
+        """Normalize every observed QUL word-by-word payload shape to ``{s:a:w: text}``.
+
+        Accepts (in priority order):
+          1. A flat ``{"1:1:1": "text"}`` dict (QUL's canonical download format).
+          2. A flat ``{"1:1:1": {"t"|"text": "..."}}`` dict.
+          3. A list of records — unwrapped via ``_unwrap_list_payload`` and
+             parsed with ``_word_key_from_record`` / ``_translation_text_from_record``.
+          4. A dict envelope containing a list under a well-known key.
+        """
+        out: dict[str, str] = {}
+
+        # Case 1 & 2: flat dict keyed by word location.
+        if isinstance(data, dict):
+            wk_keys = [k for k in data.keys() if isinstance(k, str) and k.count(":") == 2]
+            if wk_keys and len(wk_keys) >= max(1, len(data) // 2):
+                for k in wk_keys:
+                    v = data[k]
+                    text: str | None = None
+                    if isinstance(v, str):
+                        text = v
+                    elif isinstance(v, dict):
+                        for field in ("text", "t", "translation", "content"):
+                            val = v.get(field)
+                            if isinstance(val, str) and val:
+                                text = val
+                                break
+                    if text:
+                        out[k] = self._strip_html(text)
+                if out:
+                    return out
+
+        # Case 3 & 4: envelope or list payload.
+        items: list[Any] | None
+        if isinstance(data, list):
+            items = data
+        else:
+            items = self._unwrap_list_payload(
+                data,
+                (
+                    "translations",
+                    "word_translations",
+                    "word_translation_ayahs",
+                    "words",
+                    "ayahs",
+                    "verses",
+                    "data",
+                    "records",
+                    "results",
+                ),
+            )
+        if isinstance(items, list):
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                wk = self._word_key_from_record(it)
+                if not wk:
+                    continue
+                text = self._translation_text_from_record(it)
+                if isinstance(text, str) and text:
+                    out[wk] = self._strip_html(text)
+        return out
+
     @staticmethod
     def _lang_stem(language: str | None, tid: str) -> str:
         if language:
@@ -976,35 +1059,11 @@ class WordTranslationScraper(BaseScraper):
             logger.warning(f"[{self.name}] No JSON payload for {item['name']}")
             return
 
-        items = self._unwrap_list_payload(
-            data,
-            (
-                "translations",
-                "word_translations",
-                "word_translation_ayahs",
-                "words",
-                "ayahs",
-                "verses",
-                "data",
-                "records",
-                "results",
-            ),
-        )
-        out: dict[str, str] = {}
-        if isinstance(items, list):
-            for it in items:
-                if not isinstance(it, dict):
-                    continue
-                wk = self._word_key_from_record(it)
-                if not wk:
-                    continue
-                text = self._translation_text_from_record(it)
-                if isinstance(text, str) and text:
-                    out[wk] = text
+        out = self._extract_word_translation_map(data)
 
         if not out:
             logger.warning(
-                f"[{self.name}] Parsed list but no word records for {item['name']} (tid={tid}); saving raw payload."
+                f"[{self.name}] Parsed payload but no word records for {item['name']} (tid={tid}); saving raw payload."
             )
             write_json(f"data/words/translations/_raw/{stem}.json", data)
             return

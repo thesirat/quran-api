@@ -1,1 +1,90 @@
-[]
+[
+  {
+    "lang": "bengali",
+    "id": 1,
+    "name": "Bengali",
+    "language": "Bengali",
+    "direction": "ltr",
+    "word_count": 83664
+  },
+  {
+    "lang": "english",
+    "id": 2,
+    "name": "English",
+    "language": "English",
+    "direction": "ltr",
+    "word_count": 83665
+  },
+  {
+    "lang": "english_rich",
+    "id": 3,
+    "name": "English (rich HTML)",
+    "language": "English (rich HTML)",
+    "direction": "ltr",
+    "word_count": 77429
+  },
+  {
+    "lang": "french",
+    "id": 4,
+    "name": "French",
+    "language": "French",
+    "direction": "ltr",
+    "word_count": 77429
+  },
+  {
+    "lang": "hindi",
+    "id": 5,
+    "name": "Hindi",
+    "language": "Hindi",
+    "direction": "ltr",
+    "word_count": 70522
+  },
+  {
+    "lang": "indonesian",
+    "id": 6,
+    "name": "Indonesian",
+    "language": "Indonesian",
+    "direction": "ltr",
+    "word_count": 83664
+  },
+  {
+    "lang": "ingush",
+    "id": 7,
+    "name": "Ingush",
+    "language": "Ingush",
+    "direction": "ltr",
+    "word_count": 66159
+  },
+  {
+    "lang": "persian",
+    "id": 8,
+    "name": "Persian",
+    "language": "Persian",
+    "direction": "rtl",
+    "word_count": 83664
+  },
+  {
+    "lang": "tamil",
+    "id": 9,
+    "name": "Tamil",
+    "language": "Tamil",
+    "direction": "ltr",
+    "word_count": 61458
+  },
+  {
+    "lang": "turkish",
+    "id": 10,
+    "name": "Turkish",
+    "language": "Turkish",
+    "direction": "ltr",
+    "word_count": 70539
+  },
+  {
+    "lang": "urdu",
+    "id": 11,
+    "name": "Urdu",
+    "language": "Urdu",
+    "direction": "rtl",
+    "word_count": 83385
+  }
+]

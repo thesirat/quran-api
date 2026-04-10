@@ -183,6 +183,7 @@ export const WORD_TRANSLATION_LANG_ALIASES: Record<string, string> = {
   lt: "lithuanian",
   lv: "latvian",
   be: "belarusian",
+  inh: "ingush",
   // Convenience long-form aliases so ``?lang=bahasa`` etc. still resolve.
   indo: "indonesian",
   bahasa: "indonesian",
