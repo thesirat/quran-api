@@ -51,7 +51,10 @@ verse.get("/:key", async (c) => {
 
   // Optional: embed words
   if (q.words === "true") {
-    result.words = await buildWords(key, meta.words_count, q.lang);
+    result.words = await buildWords(key, meta.words_count, {
+      translationLang: q.word_translation ?? q.lang,
+      transliterationLang: q.word_transliteration ?? q.lang,
+    });
   }
 
   // Optional: embed verse-level transliteration (alias lang, e.g. ?transliteration=en)
@@ -121,7 +124,10 @@ verse.get("/:key/words", async (c) => {
   if (!meta) return apiError(c, 404, "not_found", "Verse not found");
 
   const lang = c.req.query("lang");
-  const words = await buildWords(key, meta.words_count, lang);
+  const words = await buildWords(key, meta.words_count, {
+    translationLang: c.req.query("word_translation") ?? lang,
+    transliterationLang: c.req.query("word_transliteration") ?? lang,
+  });
   return c.json({ data: words });
 });
 
@@ -284,12 +290,21 @@ verse.get("/:key/theme", async (c) => {
 // ---------------------------------------------------------------------------
 // Internal helper: build word list for a verse
 // ---------------------------------------------------------------------------
-async function buildWords(verseKey: string, wordCount: number, lang?: string): Promise<WordData[]> {
+interface BuildWordsOptions {
+  translationLang?: string;
+  transliterationLang?: string;
+}
+
+async function buildWords(
+  verseKey: string,
+  wordCount: number,
+  opts: BuildWordsOptions = {},
+): Promise<WordData[]> {
   const [wordsArabic, pauseMarks, wordTranslation, wordTransliteration] = await Promise.all([
     loadWordsArabic(),
     loadPauseMarks(),
-    lang ? loadWordTranslation(lang) : Promise.resolve(undefined),
-    lang ? loadWordTransliteration(lang) : Promise.resolve(undefined),
+    opts.translationLang ? loadWordTranslation(opts.translationLang) : Promise.resolve(undefined),
+    opts.transliterationLang ? loadWordTransliteration(opts.transliterationLang) : Promise.resolve(undefined),
   ]);
 
   const words: WordData[] = [];

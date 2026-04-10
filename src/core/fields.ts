@@ -26,7 +26,12 @@ export function parseFields(raw: string | undefined, allowed: Set<string> = ALL_
 export interface BuildVerseOptions {
   translationIds?: string[];
   words?: boolean;
+  /** Default word-level language for both translation + transliteration lookups. */
   lang?: string;
+  /** Override lang for word-level translation lookups only. */
+  wordTranslationLang?: string;
+  /** Override lang for word-level transliteration lookups only. */
+  wordTransliterationLang?: string;
   /** Embed verse-level transliteration (alias lang, e.g. "en"). */
   transliteration?: string;
 }
@@ -45,7 +50,9 @@ export async function buildVerseMap(
   const needMeta = !fields || fields.has("meta");
   const tIds = options?.translationIds;
   const needWords = options?.words === true;
-  const wordLang = needWords ? options?.lang : undefined;
+  const defaultWordLang = needWords ? options?.lang : undefined;
+  const wordTranslationLang = needWords ? (options?.wordTranslationLang ?? defaultWordLang) : undefined;
+  const wordTransliterationLang = needWords ? (options?.wordTransliterationLang ?? defaultWordLang) : undefined;
   const verseTransliterationLang = options?.transliteration;
 
   const [meta, text, wordsArabic, pauseMarks, wordTranslation, wordTransliteration, verseTransliteration, ...translationMaps] =
@@ -54,8 +61,8 @@ export async function buildVerseMap(
       needText ? loadScript(script) : Promise.resolve(null),
       needWords ? loadWordsArabic() : Promise.resolve(null),
       needWords ? loadPauseMarks() : Promise.resolve(null),
-      wordLang ? loadWordTranslation(wordLang) : Promise.resolve(undefined),
-      wordLang ? loadWordTransliteration(wordLang) : Promise.resolve(undefined),
+      wordTranslationLang ? loadWordTranslation(wordTranslationLang) : Promise.resolve(undefined),
+      wordTransliterationLang ? loadWordTransliteration(wordTransliterationLang) : Promise.resolve(undefined),
       verseTransliterationLang ? loadTransliteration(verseTransliterationLang) : Promise.resolve(undefined),
       ...(tIds ?? []).map((id) => loadTranslation(id).catch(() => null)),
     ]);

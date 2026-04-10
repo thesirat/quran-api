@@ -98,6 +98,10 @@ surah.get("/:n/verses", async (c) => {
     options.words = true;
     const lang = c.req.query("lang");
     if (lang) options.lang = lang;
+    const wt = c.req.query("word_translation");
+    if (wt) options.wordTranslationLang = wt;
+    const wtl = c.req.query("word_transliteration");
+    if (wtl) options.wordTransliterationLang = wtl;
   }
   const transliterationLang = c.req.query("transliteration");
   if (transliterationLang) options.transliteration = transliterationLang;

@@ -11,7 +11,7 @@ import {
   tryReadDataTextFromRemote,
   readDataBufferFromRemote,
 } from "../data-io.js";
-import { loadVerseMeta } from "./quran.js";
+import { loadVerseMeta, WORD_TRANSLATION_LANG_ALIASES } from "./quran.js";
 import { buildStructureFromVerseMeta } from "../structure-from-verses.js";
 import type {
   TranslationEntry,
@@ -263,19 +263,59 @@ export const loadAyahThemes = () =>
 // Word translations, Transliterations, Surah info
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the word-by-word translation catalog. Prefers
+ * ``data/words/translations/index.json`` (written by the scraper); otherwise
+ * falls back to a local directory scan. ISO aliases are appended for every
+ * canonical language present on disk so clients can use short codes (``en``,
+ * ``ur``, …) interchangeably with full names.
+ */
 export const loadWordTranslationCatalog = async (): Promise<WordTranslationCatalogEntry[]> => {
-  const fromIndex = await tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");
-  if (fromIndex) return fromIndex;
-  // Derive from word-level transliteration files so clients always have *something* under lang keys.
-  const langs = Object.keys(WORD_TRANSLITERATION_ALIASES).filter((k) => /^[a-z]{2,}$/.test(k));
-  return langs.map((lang, i) => ({ lang, id: i + 1, name: `${lang} (word-by-word transliteration)`, direction: "ltr" as const }));
+  let base = await tryLoadJson<WordTranslationCatalogEntry[]>("data/words/translations/index.json");
+  if (!base) {
+    if (isRemoteData()) {
+      base = [];
+    } else {
+      const dir = path.join(ROOT, "data/words/translations");
+      let entries: Dirent[];
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      base = entries
+        .filter((e) => e.isFile() && e.name.endsWith(".json") && e.name !== "index.json")
+        .map((e, i) => ({
+          lang: e.name.replace(/\.json$/, ""),
+          id: i + 1,
+          name: e.name.replace(/\.json$/, ""),
+          direction: "ltr" as const,
+        }))
+        .sort((a, b) => a.lang.localeCompare(b.lang));
+    }
+  }
+
+  // Append ISO-alias rows for every canonical lang we actually have a file for.
+  const present = new Set(base.map((e) => e.lang.toLowerCase()));
+  const aliasRows: WordTranslationCatalogEntry[] = [];
+  for (const [iso, canonical] of Object.entries(WORD_TRANSLATION_LANG_ALIASES)) {
+    if (!present.has(canonical)) continue;
+    if (present.has(iso)) continue;
+    aliasRows.push({ lang: iso, id: 0, name: `alias → ${canonical}`, direction: "ltr" });
+  }
+  return [...base, ...aliasRows];
 };
 
 /**
  * Language → filename stem aliases for verse-level transliterations.
- * The actual files live at data/transliteration/<stem>.json.
+ * Files live at ``data/transliteration/<stem>.json``.
+ *
+ * Only short ISO codes and human-friendly aliases need to be registered here;
+ * any scraped file stem is automatically discoverable via the fuzzy fallback
+ * in {@link loadTransliteration}.
  */
 const VERSE_TRANSLITERATION_ALIASES: Record<string, string> = {
+  // English (multiple renderings)
   en: "english_transliterationtajweed",
   "en-clean": "english_transliterationtajweed",
   "en-tajweed": "english_transliterationtajweed",
@@ -286,8 +326,10 @@ const VERSE_TRANSLITERATION_ALIASES: Record<string, string> = {
   "en-syllables": "syllables_transliteration",
   "english-syllables": "syllables_transliteration",
   syllables: "syllables_transliteration",
+  // Turkish
   tr: "turkish_transliteration",
   turkish: "turkish_transliteration",
+  // Generic fallback — `transliteration.json` at the root of the resource dir.
   default: "transliteration",
 };
 
@@ -321,42 +363,155 @@ function normalizeVerseTransliteration(
   return out;
 }
 
+/**
+ * Cache of available transliteration filenames. In local mode this is populated
+ * by a one-shot directory scan; in remote mode it falls back to
+ * ``data/transliteration/index.json`` entries.
+ */
+let _transliterationDirListingCache: string[] | undefined;
+
+async function listTransliterationStems(): Promise<string[]> {
+  if (_transliterationDirListingCache) return _transliterationDirListingCache;
+  if (isRemoteData()) {
+    const idx = await tryLoadJson<Array<{ lang?: string; name?: string }>>("data/transliteration/index.json");
+    if (idx) {
+      const stems = new Set<string>();
+      for (const row of idx) {
+        if (typeof row.name === "string") stems.add(row.name);
+        if (typeof row.lang === "string") stems.add(row.lang);
+      }
+      _transliterationDirListingCache = [...stems];
+    } else {
+      _transliterationDirListingCache = [];
+    }
+    return _transliterationDirListingCache;
+  }
+  try {
+    const dir = path.join(ROOT, "data/transliteration");
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    _transliterationDirListingCache = entries
+      .filter((e) => e.isFile() && e.name.endsWith(".json") && e.name !== "index.json")
+      .map((e) => e.name.replace(/\.json$/, ""));
+  } catch {
+    _transliterationDirListingCache = [];
+  }
+  return _transliterationDirListingCache;
+}
+
+/** Heuristic: does a filename stem look like word-by-word transliteration data? */
+function stemLooksLikeWord(stem: string): boolean {
+  const s = stem.toLowerCase();
+  return s.includes("wbw") || s.includes("word_by_word") || s.includes("word-by-word") || s.includes("_wbw_");
+}
+
 export const loadTransliterationCatalog = async (): Promise<TransliterationCatalogEntry[]> => {
   const fromIndex = await tryLoadJson<TransliterationCatalogEntry[]>("data/transliteration/index.json");
   if (fromIndex) return fromIndex;
-  // Synthesize a catalog from known aliases so clients can discover supported lang codes.
-  const verseEntries: TransliterationCatalogEntry[] = [];
+
+  // Prefer a live filesystem scan so every scraped file is discoverable — not
+  // just the hand-coded aliases. ``name`` (file stem) is the durable handle;
+  // ``lang`` is also set to the stem so existing clients keep working.
+  const entries: TransliterationCatalogEntry[] = [];
   const seen = new Set<string>();
+  const stems = await listTransliterationStems();
+  for (const stem of stems) {
+    if (seen.has(stem)) continue;
+    seen.add(stem);
+    entries.push({
+      lang: stem,
+      name: stem,
+      type: stemLooksLikeWord(stem) ? "word" : "ayah",
+    });
+  }
+  // Append ISO-code aliases so discoverable short codes also show up.
   for (const [lang, stem] of Object.entries(VERSE_TRANSLITERATION_ALIASES)) {
     if (seen.has(lang)) continue;
     seen.add(lang);
-    verseEntries.push({ lang, name: stem, type: "ayah" });
+    entries.push({ lang, name: stem, type: "ayah" });
   }
   for (const [lang, stem] of Object.entries(WORD_TRANSLITERATION_ALIASES)) {
     const key = `word:${lang}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    verseEntries.push({ lang, name: stem, type: "word" });
+    entries.push({ lang, name: stem, type: "word" });
   }
-  return verseEntries;
+  return entries;
 };
 
+/**
+ * Load verse-level transliteration. Resolution order:
+ *   1. Aliased stem from {@link VERSE_TRANSLITERATION_ALIASES}.
+ *   2. Raw input lowercased (supports passing a file stem directly).
+ *   3. Substring match against the filesystem listing so unlisted scraped
+ *      languages still resolve (e.g. ``?lang=russian`` → ``russian_transliteration.json``).
+ */
 export const loadTransliteration = async (lang: string): Promise<Record<string, string> | undefined> => {
-  const stem = resolveTransliterationStem(lang);
-  assertSafeResourceSegment(stem, "transliteration lang");
+  const lower = lang.toLowerCase();
+  const stems: string[] = [];
+  const seen = new Set<string>();
+  const push = (s: string | undefined): void => {
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    stems.push(s);
+  };
+  push(resolveTransliterationStem(lang));
+  push(lower);
+
+  for (const stem of stems) {
+    assertSafeResourceSegment(stem, "transliteration lang");
+    const raw = await tryLoadJson<Record<string, string | { t?: string; text?: string }>>(
+      `data/transliteration/${stem}.json`,
+    );
+    if (raw) return normalizeVerseTransliteration(raw);
+  }
+
+  // Fuzzy fallback: scan for a file whose stem contains the language and is
+  // NOT a word-by-word variant.
+  const available = await listTransliterationStems();
+  const ayahCandidates = available.filter((s) => !stemLooksLikeWord(s));
+  const hit =
+    ayahCandidates.find((s) => s === lower) ??
+    ayahCandidates.find((s) => s.startsWith(`${lower}_`) || s.startsWith(`${lower}-`)) ??
+    ayahCandidates.find((s) => s.includes(lower));
+  if (!hit) return undefined;
+  assertSafeResourceSegment(hit, "transliteration lang");
   const raw = await tryLoadJson<Record<string, string | { t?: string; text?: string }>>(
-    `data/transliteration/${stem}.json`,
+    `data/transliteration/${hit}.json`,
   );
-  if (!raw) return undefined;
-  return normalizeVerseTransliteration(raw);
+  return raw ? normalizeVerseTransliteration(raw) : undefined;
 };
 
-/** Load word-by-word transliteration map (`surah:ayah:word` → text) for a given lang. */
+/**
+ * Load word-by-word transliteration map (`surah:ayah:word` → text) for a given lang.
+ * Resolution mirrors {@link loadTransliteration} but restricts to stems that look
+ * like word-by-word data.
+ */
 export const loadWordTransliteration = async (lang: string): Promise<Record<string, string> | undefined> => {
-  const stem = resolveWordTransliterationStem(lang);
-  if (!stem) return undefined;
-  assertSafeResourceSegment(stem, "word transliteration lang");
-  return tryLoadJson<Record<string, string>>(`data/transliteration/${stem}.json`);
+  const lower = lang.toLowerCase();
+  const aliased = resolveWordTransliterationStem(lang);
+
+  const stems: string[] = [];
+  const seen = new Set<string>();
+  const push = (s: string | undefined): void => {
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    stems.push(s);
+  };
+  push(aliased);
+  if (stemLooksLikeWord(lower)) push(lower);
+
+  for (const stem of stems) {
+    assertSafeResourceSegment(stem, "word transliteration lang");
+    const raw = await tryLoadJson<Record<string, string>>(`data/transliteration/${stem}.json`);
+    if (raw) return raw;
+  }
+
+  const available = await listTransliterationStems();
+  const wbw = available.filter(stemLooksLikeWord);
+  const hit = wbw.find((s) => s.includes(lower));
+  if (!hit) return undefined;
+  assertSafeResourceSegment(hit, "word transliteration lang");
+  return tryLoadJson<Record<string, string>>(`data/transliteration/${hit}.json`);
 };
 
 export const loadSurahInfoCatalog = () =>

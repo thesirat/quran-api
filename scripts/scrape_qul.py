@@ -12,9 +12,10 @@ Usage:
     python3 scripts/scrape_qul.py --contexts 6         # Change context pool size
     QUL_DOWNLOAD_TIMEOUT_MS=1800000  # Optional: wait for download to start (default 900000 ms)
 
-Resources include: translations, tafsirs, quran-scripts, quran-metadata, surah-info,
-topics, ayah-themes, similar-ayah, mutashabihat (phrases.json + phrase_verses.json from zip),
-mushaf-layout, transliteration, morphology, recitation (segments/surah JSON + audio zips), fonts (alias: font; zips unpacked to loose files).
+Resources include: translations, word-translations (alias: word-translation), tafsirs,
+quran-scripts, quran-metadata, surah-info, topics, ayah-themes, similar-ayah,
+mutashabihat (phrases.json + phrase_verses.json from zip), mushaf-layout, transliteration,
+morphology, recitation (segments/surah JSON + audio zips), fonts (alias: font; zips unpacked to loose files).
 """
 from __future__ import annotations
 
@@ -617,6 +618,39 @@ class BaseScraper:
         return None
 
     @staticmethod
+    def _word_key_from_record(it: dict[str, Any]) -> str | None:
+        """Extract a `surah:ayah:word` key from a QUL word-translation record.
+
+        QUL word-by-word payloads vary: some records carry a literal `location`
+        or `word_key` field (e.g. "1:1:1"), others only have chapter/verse and
+        a position index. We accept all shapes and fall back to composition.
+        """
+        for key in ("location", "word_key", "wordKey", "key"):
+            v = it.get(key)
+            if isinstance(v, str) and v.count(":") == 2:
+                return v
+        word = it.get("word")
+        if isinstance(word, dict):
+            for key in ("location", "word_key", "wordKey"):
+                v = word.get(key)
+                if isinstance(v, str) and v.count(":") == 2:
+                    return v
+            ch = word.get("chapter_id") or word.get("chapter_number") or word.get("surah_id")
+            vn = word.get("verse_number") or word.get("ayah")
+            pos = word.get("position") or word.get("word_number") or word.get("word_position")
+            if ch is not None and vn is not None and pos is not None:
+                return f"{ch}:{vn}:{pos}"
+        vk = it.get("verse_key") or it.get("verseKey")
+        pos = it.get("position") or it.get("word_number") or it.get("word_position")
+        if isinstance(vk, str) and vk.count(":") == 1 and pos is not None:
+            return f"{vk}:{pos}"
+        ch = it.get("chapter_id") or it.get("chapter_number") or it.get("surah_id")
+        vn = it.get("verse_number")
+        if ch is not None and vn is not None and pos is not None:
+            return f"{ch}:{vn}:{pos}"
+        return None
+
+    @staticmethod
     def _translation_text_from_record(it: dict[str, Any]) -> str | None:
         for key in (
             "text",
@@ -687,17 +721,27 @@ class TranslationScraper(BaseScraper):
                 row = rows.nth(i)
                 link = row.locator('td:first-child a[href*="/resources/translation/"]').first
                 text = await link.inner_text()
-                if "word" in text.lower(): continue
+
+                # Skip word-by-word entries — those are scraped by WordTranslationScraper.
+                # Check both link text and chip labels so entries like
+                # "English — Word-by-Word" are reliably routed away from here.
+                chips = row.locator('a.tag')
+                chip_count = await chips.count()
+                chip_texts: list[str] = []
+                for ci in range(chip_count):
+                    ct = (await chips.nth(ci).inner_text()).strip()
+                    if ct:
+                        chip_texts.append(ct)
+                haystacks = [text.lower(), *[c.lower() for c in chip_texts]]
+                if any(("word" in h) or ("wbw" in h) for h in haystacks):
+                    continue
 
                 href = await link.get_attribute("href")
                 if href:
                     item: dict[str, str] = {"name": text.strip(), "path": href}
                     # Extract language from tag chips (first non-"translation" a.tag)
-                    chips = row.locator('a.tag')
-                    chip_count = await chips.count()
-                    for ci in range(chip_count):
-                        chip_text = (await chips.nth(ci).inner_text()).strip()
-                        if chip_text and chip_text.lower() != "translation":
+                    for chip_text in chip_texts:
+                        if chip_text.lower() != "translation":
                             item["language"] = chip_text
                             break
                     detail_items.append(item)
@@ -775,6 +819,208 @@ class TranslationScraper(BaseScraper):
             else:
                 write_json(f"data/translations/{tid}.json", data)
                 await self.bump_stat("written")
+
+class WordTranslationScraper(BaseScraper):
+    """
+    Scrapes QUL **word-by-word** translation resources from the
+    ``/resources/translation/`` listing. ``TranslationScraper`` explicitly
+    skips these (``if "word" in text.lower(): continue``); this class does
+    the opposite so we can populate ``data/words/translations/<lang>.json``.
+
+    Output shape per file::
+
+        { "1:1:1": "In (the) name", "1:1:2": "(of) Allah", ... }
+
+    A catalog is emitted at ``data/words/translations/index.json`` so the
+    API can discover available languages without a directory scan.
+    """
+
+    def __init__(self, session: QULSession):
+        super().__init__(session, "word-translations")
+        self._written_stems: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _lang_stem(language: str | None, tid: str) -> str:
+        if language:
+            slug = (
+                language.strip().lower()
+                .replace(" ", "_")
+                .replace("(", "")
+                .replace(")", "")
+                .replace("/", "_")
+                .replace("-", "_")
+            )
+            if slug:
+                return slug
+        return tid if tid else "unknown"
+
+    async def run(self):
+        page = self.session.page
+        try:
+            await self.goto(page, f"{self.config.base_url}/resources/translation/")
+            await page.wait_for_selector("table tr", timeout=15_000)
+
+            rows = page.locator('tr:has(td:first-child a[href*="/resources/translation/"])')
+            count = await rows.count()
+            logger.info(f"[{self.name}] Found {count} rows. Filtering word-by-word entries...")
+
+            detail_items: list[dict[str, str]] = []
+            for i in range(count):
+                row = rows.nth(i)
+                link = row.locator('td:first-child a[href*="/resources/translation/"]').first
+                text = (await link.inner_text()).strip()
+                href = await link.get_attribute("href")
+                if not href:
+                    continue
+
+                # Collect chip tags once — used for both filtering and language detection.
+                chips = row.locator("a.tag")
+                chip_count = await chips.count()
+                chip_texts: list[str] = []
+                for ci in range(chip_count):
+                    ct = (await chips.nth(ci).inner_text()).strip()
+                    if ct:
+                        chip_texts.append(ct)
+
+                # Match if the link text or any chip mentions "word" / "wbw". QUL uses
+                # variants like "Word by Word", "Word-by-Word", "WBW", "Word-by-Word — English".
+                haystacks = [text.lower(), *[c.lower() for c in chip_texts]]
+                is_wbw = any(
+                    ("word" in h) or ("wbw" in h)
+                    for h in haystacks
+                )
+                if not is_wbw:
+                    continue
+
+                item: dict[str, str] = {"name": text, "path": href}
+
+                # Pick the first chip that isn't a structural marker as the language label.
+                STRUCTURAL = {
+                    "translation", "word-by-word", "word by word", "wbw",
+                    "ayah-by-ayah", "ayah by ayah", "verse-by-verse",
+                }
+                for ct in chip_texts:
+                    if ct.lower() not in STRUCTURAL:
+                        item["language"] = ct
+                        break
+
+                # Fallback: parse language from the display name (e.g. "Word by Word - English").
+                if "language" not in item:
+                    lower = text.lower()
+                    for marker in ("word by word", "word-by-word", "wordbyword", "wbw"):
+                        idx = lower.find(marker)
+                        if idx == -1:
+                            continue
+                        tail = text[idx + len(marker):].lstrip(" -:—–—")
+                        if tail:
+                            item["language"] = tail.split("(")[0].strip()
+                        break
+
+                detail_items.append(item)
+
+            logger.info(f"[{self.name}] Queued {len(detail_items)} word-by-word resources.")
+            if not detail_items:
+                logger.warning(
+                    f"[{self.name}] No word-by-word resources matched. "
+                    "If QUL added new entries, review the filter heuristics in WordTranslationScraper.run()."
+                )
+                return
+
+            # Disambiguate stems when two resources share a language.
+            stems: dict[str, int] = {}
+
+            async def _one(item: dict[str, str]) -> None:
+                tid = self._resource_slug(item["path"])
+                base_stem = self._lang_stem(item.get("language"), tid)
+                idx = stems.get(base_stem, 0)
+                stems[base_stem] = idx + 1
+                stem = base_stem if idx == 0 else f"{base_stem}_{tid}"
+                async with self.session.worker_page() as wp:
+                    await self._scrape_resource(wp, item, stem, tid)
+
+            results = await asyncio.gather(
+                *(_one(item) for item in detail_items),
+                return_exceptions=True,
+            )
+            for item, res in zip(detail_items, results):
+                if isinstance(res, Exception):
+                    msg = f"{item.get('path')}: {res}"
+                    logger.error(f"[{self.name}] {msg}")
+                    self.errors.append(msg)
+
+            # Emit catalog index.json — one entry per written stem.
+            catalog: list[dict[str, Any]] = []
+            for s, meta in self._written_stems.items():
+                catalog.append({
+                    "lang": s,
+                    "id": meta["id"],
+                    "name": meta["name"],
+                    "language": meta["language"],
+                    "direction": meta.get("direction", "ltr"),
+                })
+            catalog.sort(key=lambda e: e["lang"])
+            write_json("data/words/translations/index.json", catalog)
+            logger.info(f"[{self.name}] Wrote catalog with {len(catalog)} entries.")
+        finally:
+            pass
+        self.print_summary()
+
+    async def _scrape_resource(self, page: Any, item: dict[str, str], stem: str, tid: str) -> None:
+        detail_url = f"{self.config.base_url}{item['path']}"
+        logger.info(f"[{self.name}] Navigating to detail page: {item['name']}")
+        await self.goto(page, detail_url)
+
+        json_btn = self._json_download_locator(page)
+        data = await self.download_resource(page, json_btn, tag=f"wt-{tid}")
+        if not data:
+            logger.warning(f"[{self.name}] No JSON payload for {item['name']}")
+            return
+
+        items = self._unwrap_list_payload(
+            data,
+            (
+                "translations",
+                "word_translations",
+                "word_translation_ayahs",
+                "words",
+                "ayahs",
+                "verses",
+                "data",
+                "records",
+                "results",
+            ),
+        )
+        out: dict[str, str] = {}
+        if isinstance(items, list):
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                wk = self._word_key_from_record(it)
+                if not wk:
+                    continue
+                text = self._translation_text_from_record(it)
+                if isinstance(text, str) and text:
+                    out[wk] = text
+
+        if not out:
+            logger.warning(
+                f"[{self.name}] Parsed list but no word records for {item['name']} (tid={tid}); saving raw payload."
+            )
+            write_json(f"data/words/translations/_raw/{stem}.json", data)
+            return
+
+        write_json(f"data/words/translations/{stem}.json", out)
+        num = int(tid) if tid.isdigit() else 0
+        self._written_stems[stem] = {
+            "id": num,
+            "name": item["name"],
+            "language": item.get("language", "unknown"),
+        }
+        await self.bump_stat("written")
+        logger.info(
+            f"[{self.name}] Wrote data/words/translations/{stem}.json ({len(out)} words)"
+        )
+
 
 class TafsirScraper(BaseScraper):
     def __init__(self, session: QULSession): super().__init__(session, "tafsirs")
@@ -1257,6 +1503,7 @@ class MultiAssetResourceScraper(BaseScraper):
 
 SCRAPER_FACTORIES: dict[str, Callable[[QULSession], BaseScraper]] = {
     "translations": TranslationScraper,
+    "word-translations": WordTranslationScraper,
     "tafsirs": TafsirScraper,
     "quran-scripts": QuranScriptScraper,
     "quran-metadata": lambda s: BasicSingleFileScraper(s, "quran-metadata", "data/metadata/quran.json", "quran-metadata"),
@@ -1306,7 +1553,7 @@ async def main():
     config = QULConfig(headless=args.headless == "true")
     if args.contexts is not None:
         config.num_contexts = max(1, args.contexts)
-    _aliases = {"font": "fonts"}
+    _aliases = {"font": "fonts", "word-translation": "word-translations"}
     if args.resources == "all":
         selected = list(SCRAPER_FACTORIES.keys())
     else:
