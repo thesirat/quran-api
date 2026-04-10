@@ -945,6 +945,28 @@ class BasicSingleFileScraper(BaseScraper):
         self.path = path
         self.slug = slug
         self.multi_dir = multi_dir.rstrip("/")
+        self._written_items: list[dict] = []
+
+    def _derive_filename(self, display_name: str) -> str:
+        """Convert a resource display name into a filesystem-safe stem."""
+        return (
+            display_name.lower()
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("/", "_")
+        )
+
+    def _on_written(self, display_name: str, fname: str, out_path: str) -> None:
+        """Record a successful write; override to customise tracking."""
+        self._written_items.append(
+            {"display_name": display_name, "fname": fname, "path": out_path}
+        )
+
+    async def _finalize(self) -> None:
+        """Called once after all items have been processed. Default: no-op."""
+        pass
+
     async def run(self):
         page = self.session.page
         try:
@@ -983,7 +1005,7 @@ class BasicSingleFileScraper(BaseScraper):
             async def _one(item: dict[str, str]) -> None:
                 name = item["name"]
                 path = item["path"]
-                fname = name.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+                fname = self._derive_filename(name)
                 out_path = (
                     self.path
                     if n_resources == 1 and getattr(self, "path", "")
@@ -1005,6 +1027,7 @@ class BasicSingleFileScraper(BaseScraper):
                         if isinstance(data, dict) and "data" in data:
                             res_to_write = data["data"]
                         write_json(out_path, res_to_write)
+                        self._on_written(name, fname, out_path)
                         await self.bump_stat("written")
                         logger.info(
                             f"[{self.name}] Wrote {out_path} ({len(str(res_to_write))} chars approx)"
@@ -1027,9 +1050,58 @@ class BasicSingleFileScraper(BaseScraper):
                     msg = f"{item.get('path')}: {res}"
                     logger.error(f"[{self.name}] {msg}")
                     self.errors.append(msg)
+            try:
+                await self._finalize()
+            except Exception as e:
+                logger.error(f"[{self.name}] Finalize failed: {e}")
         except Exception as e:
             logger.error(f"[{self.name}] Critical error in run: {e}")
         self.print_summary()
+
+
+class SurahInfoScraper(BasicSingleFileScraper):
+    """
+    Writes QUL "Surah Info" resources to ``data/surah-info/<lang>.json``
+    (one file per language, stripped of the ``Surah Info - `` prefix)
+    and emits a catalog ``data/surah-info/index.json`` describing the
+    available languages so the API can discover them without a directory
+    scan.
+    """
+
+    _PREFIX_RE = re.compile(r"^surah\s*info\s*[-_:]*\s*", re.IGNORECASE)
+
+    def _derive_filename(self, display_name: str) -> str:
+        stem = self._PREFIX_RE.sub("", display_name).strip()
+        if not stem:
+            stem = display_name
+        return (
+            stem.lower()
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("/", "_")
+        )
+
+    async def _finalize(self) -> None:
+        if not self._written_items:
+            return
+        seen: dict[str, dict] = {}
+        for item in self._written_items:
+            lang = item["fname"]
+            if lang in seen:
+                continue
+            display = item["display_name"]
+            # Keep the bit after the prefix as the friendly name, falling
+            # back to a title-cased lang slug.
+            stripped = self._PREFIX_RE.sub("", display).strip()
+            friendly = stripped or lang.replace("_", " ").title()
+            seen[lang] = {"lang": lang, "name": friendly}
+        index = sorted(seen.values(), key=lambda e: e["lang"])
+        index_path = f"{self.multi_dir}/index.json"
+        write_json(index_path, index)
+        logger.info(
+            f"[{self.name}] Wrote catalog {index_path} ({len(index)} languages)"
+        )
 
 
 class MultiAssetResourceScraper(BaseScraper):
@@ -1137,7 +1209,9 @@ SCRAPER_FACTORIES: dict[str, Callable[[QULSession], BaseScraper]] = {
     "tafsirs": TafsirScraper,
     "quran-scripts": QuranScriptScraper,
     "quran-metadata": lambda s: BasicSingleFileScraper(s, "quran-metadata", "data/metadata/quran.json", "quran-metadata"),
-    "surah-info": lambda s: BasicSingleFileScraper(s, "surah-info", "data/surah-info/data.json", "surah-info"),
+    "surah-info": lambda s: SurahInfoScraper(
+        s, "surah-info", "", "surah-info", "data/surah-info"
+    ),
     "topics": lambda s: BasicSingleFileScraper(s, "topics", "data/topics/data.json", "ayah-topics"),
     "ayah-themes": lambda s: BasicSingleFileScraper(s, "ayah-themes", "data/ayah-themes/data.json", "ayah-theme"),
     "similar-ayah": lambda s: BasicSingleFileScraper(

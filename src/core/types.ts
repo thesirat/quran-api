@@ -283,10 +283,10 @@ export interface TransliterationCatalogEntry {
 // Surah information
 // ---------------------------------------------------------------------------
 export interface SurahInfo {
-  name?: string;
-  short_intro?: string;
-  description?: string;
-  language?: string;
+  surah_number: number;
+  surah_name: string;
+  text: string;
+  short_text?: string;
 }
 
 export interface SurahInfoCatalogEntry {
