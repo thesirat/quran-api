@@ -20,9 +20,15 @@ export interface RawWordEntry {
 /**
  * QUL quran-script resources save as `data/quran/<id>-raw.json` when the payload is word-keyed.
  * Ordered candidates (first hit wins). Extend if your scrape uses different ids.
+ *
+ * For `uthmani` we prefer `48` (QPC Hafs Uthmani — canonical: ~2555/2557 occurrences of U+0671
+ * ALIF WASLA in "Allah", clean per-word text without stray end-of-ayah markers). Resource `565`
+ * is kept only as a last-resort fallback because it ships IndoPak-shaped orthography (no wasla)
+ * and bleeds end-of-ayah decoration (RLO bidi + U+08E2 ARABIC DISPUTED END OF AYAH + pause mark)
+ * onto the previous word — see `cleanRawWordText` below for the defensive sanitizer.
  */
 export const SCRIPT_QUL_RAW_IDS: Partial<Record<QuranScriptId, string[]>> = {
-  uthmani: ["565", "48", "56", "54", "59"],
+  uthmani: ["48", "56", "54", "59", "565"],
   simple: ["60", "53"],
   indopak: ["52"],
   tajweed: ["312", "55", "58"],
@@ -31,6 +37,30 @@ export const SCRIPT_QUL_RAW_IDS: Partial<Record<QuranScriptId, string[]>> = {
 
 function isWordLocationKey(k: string): boolean {
   return /^\d+:\d+:\d+$/.test(k);
+}
+
+/**
+ * Strip end-of-ayah decoration that some QUL word-text dumps splice onto the
+ * previous word's tail. The two characters we never want inside a word body:
+ *
+ *   • U+202E RIGHT-TO-LEFT OVERRIDE — a bidi control with no orthographic role
+ *     in Quranic text; QUL uses it to wrap ayah-end glyph clusters.
+ *   • U+08E2 ARABIC DISPUTED END OF AYAH — a scholarly-dispute sentinel with
+ *     no rendered glyph in any Quran font (Uthmani-Hafs, IndoPak, Nastaleeq,
+ *     Noto Naskh, Amiri all lack it). Anything trailing it (Arabic-Indic
+ *     digit, U+06D9/U+06DA/U+06DB pause mark) is part of the same cluster.
+ *
+ * Both occur exclusively as ayah-end decoration that should live on the
+ * `type:end` sentinel word, not glued to the preceding lexical word.
+ */
+export function cleanRawWordText(text: string): string {
+  if (!text) return text;
+  let cut = text.length;
+  const idxRlo = text.indexOf("\u202e");
+  if (idxRlo !== -1) cut = Math.min(cut, idxRlo);
+  const idx08e2 = text.indexOf("\u08e2");
+  if (idx08e2 !== -1) cut = Math.min(cut, idx08e2);
+  return (cut === text.length ? text : text.slice(0, cut)).trim();
 }
 
 /** Join per-word `text` into full ayah strings; drops image-URL “words”. */
@@ -53,7 +83,7 @@ export function aggregateAyahsFromWordRaw(raw: Record<string, RawWordEntry>): Re
   for (const [vk, words] of groups) {
     words.sort((a, b) => Number(a.word) - Number(b.word));
     const parts = words
-      .map((w) => (typeof w.text === "string" ? w.text.trim() : ""))
+      .map((w) => (typeof w.text === "string" ? cleanRawWordText(w.text) : ""))
       .filter((t) => t.length > 0 && !t.startsWith("http"));
     out[vk] = parts.join(" ").trim();
   }
@@ -81,7 +111,7 @@ export type WordsArabicMap = Record<string, Omit<WordData, "key">>;
 function qulRawRowToWordShape(key: string, row: RawWordEntry): WordsArabicMap[string] | null {
   if (!isWordLocationKey(key)) return null;
   const text = typeof row.text === "string" ? row.text : "";
-  const trimmed = text.trim();
+  const trimmed = cleanRawWordText(text);
   if (!trimmed || trimmed.startsWith("http")) return null;
   let position = 1;
   if (row.word !== undefined) {
@@ -148,7 +178,7 @@ export async function tryLoadWordsArabicFromQulRaw(deps: {
 
   for (const key of Object.keys(map)) {
     const alt = indoRaw[key];
-    const t = alt && typeof alt.text === "string" ? alt.text.trim() : "";
+    const t = alt && typeof alt.text === "string" ? cleanRawWordText(alt.text) : "";
     if (t) map[key] = { ...map[key], text_indopak: t };
   }
   return map;
